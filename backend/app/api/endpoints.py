@@ -1,15 +1,17 @@
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from backend.app.database.connection import get_db
-from backend.app.models.tables import POIModel, ZoneModel, CityModel
+from backend.app.models.tables import POIModel
 from backend.app.schemas.category import Category, CategoryListResponse
 from backend.app.schemas.city import City, Coordinates, CityListResponse
 from backend.app.schemas.spatial import CompetitionAnalysisResult
 from backend.app.schemas.service_gap import ServiceGapResult
+from backend.app.schemas.opportunity import OpportunityRequest, OpportunityResponse
 from backend.app.services.spatial import analyze_competition
 from backend.app.services.service_gap import calculate_service_gap
+from backend.app.services.opportunity import evaluate_opportunity
 
 router = APIRouter(prefix="/api", tags=["UrbanIQ Core Analytics"])
 
@@ -99,7 +101,6 @@ def get_competition_analysis(
     """
     Compute competition metrics (count, density, nearest competitor distance) around a coordinate.
     """
-    # Fetch candidate POIs from PostgreSQL cache matching this category
     db_pois = db.query(POIModel).filter(POIModel.category == category_id).all()
     pois_list = [
         {
@@ -112,7 +113,6 @@ def get_competition_analysis(
         for p in db_pois
     ]
 
-    # If database has no cached POIs yet, provide baseline seed POIs for demonstration
     if not pois_list:
         pois_list = [
             {"id": 1, "name": "Kothrud Care Clinic", "amenity": "clinic", "latitude": 18.5095, "longitude": 73.8090},
@@ -167,3 +167,16 @@ def get_service_gap_analysis(
         population_proxy=population_proxy,
         radius_meters=radius_meters,
     )
+
+
+@router.post("/opportunity", response_model=OpportunityResponse)
+def post_calculate_opportunity(
+    req: OpportunityRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Primary UrbanIQ Opportunity Engine.
+    Executes Spatial Analysis + Service Gap + Fuzzy Logic Inference.
+    Saves the computed evaluation in PostgreSQL and returns explainable reasons & risks.
+    """
+    return evaluate_opportunity(req, db)
