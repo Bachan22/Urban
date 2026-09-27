@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import type { BusinessType } from "../data/puneData";
 
 const businessTypes: BusinessType[] = [
@@ -14,11 +15,16 @@ const businessTypes: BusinessType[] = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [businessType, setBusinessType] = useState<BusinessType>("Education Institute");
   const [city, setCity] = useState("Pune");
 
   const handleAnalyze = () => {
-    navigate(`/map?business=${encodeURIComponent(businessType)}&city=${encodeURIComponent(city)}`);
+    if (isAuthenticated) {
+      navigate(`/map?business=${encodeURIComponent(businessType)}&city=${encodeURIComponent(city)}`);
+    } else {
+      navigate("/login");
+    }
   };
 
   return (
@@ -38,12 +44,25 @@ export default function LandingPage() {
         </nav>
 
         <div className="nav-actions">
-          <button className="login-btn" onClick={() => navigate("/dashboard")}>
-            Dashboard
-          </button>
-          <button className="signup-btn" onClick={() => navigate("/map")}>
-            Explore Map
-          </button>
+          {isAuthenticated ? (
+            <>
+              <button className="login-btn" onClick={() => navigate("/dashboard")}>
+                Dashboard
+              </button>
+              <button className="signup-btn" onClick={() => navigate("/iot")}>
+                IoT Devices
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="login-btn" onClick={() => navigate("/login")}>
+                Login
+              </button>
+              <button className="signup-btn" onClick={() => navigate("/signup")}>
+                Sign Up
+              </button>
+            </>
+          )}
         </div>
       </header>
 

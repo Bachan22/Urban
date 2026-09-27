@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.api.endpoints import router as api_router
+from backend.app.api.auth import router as auth_router
+from backend.app.api.iot import router as iot_router
+from backend.app.api.admin import router as admin_router
 
 # Initialize FastAPI application with project metadata
 app = FastAPI(
@@ -13,6 +16,7 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:3000",
 ]
 
 app.add_middleware(
@@ -23,8 +27,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register API Router
+# Register API Routers
 app.include_router(api_router)
+app.include_router(auth_router)
+app.include_router(iot_router)
+app.include_router(admin_router)
 
 
 @app.get("/")
