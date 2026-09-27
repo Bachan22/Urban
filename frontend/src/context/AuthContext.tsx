@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import axios from "axios";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+
 interface User {
   id: number;
   email: string;
@@ -29,8 +31,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const API_URL = "http://localhost:8000";
-
   // Initialize from localStorage
   useEffect(() => {
     const savedToken = localStorage.getItem("accessToken");
@@ -41,74 +41,67 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setRefreshToken(savedRefreshToken);
 
       // Verify token by fetching user info
-      verifyToken(savedToken);
+      verifyToken(savedToken)
+        .then((currentUser) => setUser(currentUser))
+        .catch(() => {
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          setAccessToken(null);
+          setRefreshToken(null);
+          setUser(null);
+        })
+        .finally(() => setIsLoading(false));
     } else {
       setIsLoading(false);
     }
   }, []);
 
-  const verifyToken = async (token: string) => {
-    try {
-      const response = await axios.get(`${API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setUser(response.data);
-    } catch {
-      // Token invalid, clear storage
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      setAccessToken(null);
-      setRefreshToken(null);
-    } finally {
-      setIsLoading(false);
-    }
+  const verifyToken = async (token: string): Promise<User> => {
+    const response = await axios.get<User>(`${API_BASE_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
   };
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post(`${API_URL}/api/auth/login`, {
+      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
         email,
         password,
       });
 
-      setAccessToken(response.data.access_token);
-      setRefreshToken(response.data.refresh_token);
+      const { access_token: newAccessToken, refresh_token: newRefreshToken } = response.data;
+      const currentUser = await verifyToken(newAccessToken);
 
-      localStorage.setItem("accessToken", response.data.access_token);
-      localStorage.setItem("refreshToken", response.data.refresh_token);
-
-      // Fetch user data
-      await verifyToken(response.data.access_token);
+      setAccessToken(newAccessToken);
+      setRefreshToken(newRefreshToken);
+      setUser(currentUser);
+      localStorage.setItem("accessToken", newAccessToken);
+      localStorage.setItem("refreshToken", newRefreshToken);
     } catch (error: any) {
-      throw new Error(error.response?.data?.detail || "Login failed");
+      throw new Error(getAuthErrorMessage(error, "Login failed"));
     }
   };
 
   const signup = async (email: string, username: string, password: string, fullName?: string) => {
     try {
-      const response = await axios.post(`${API_URL}/api/auth/signup`, {
+      const response = await axios.post(`${API_BASE_URL}/auth/signup`, {
         email,
         username,
         password,
         full_name: fullName,
       });
 
-      setAccessToken(response.data.access_token);
-      setRefreshToken(response.data.refresh_token);
+      const { access_token: newAccessToken, refresh_token: newRefreshToken } = response.data;
+      const currentUser = await verifyToken(newAccessToken);
 
-      localStorage.setItem("accessToken", response.data.access_token);
-      localStorage.setItem("refreshToken", response.data.refresh_token);
-
-      // Set default user
-      setUser({
-        id: 0,
-        email,
-        username,
-        full_name: fullName,
-        role: "user",
-      });
+      setAccessToken(newAccessToken);
+      setRefreshToken(newRefreshToken);
+      setUser(currentUser);
+      localStorage.setItem("accessToken", newAccessToken);
+      localStorage.setItem("refreshToken", newRefreshToken);
     } catch (error: any) {
-      throw new Error(error.response?.data?.detail || "Signup failed");
+      throw new Error(getAuthErrorMessage(error, "Signup failed"));
     }
   };
 
@@ -134,6 +127,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+function getAuthErrorMessage(error: unknown, fallback: string): string {
+  if (!axios.isAxiosError(error)) {
+    return error instanceof Error ? error.message : fallback;
+  }
+
+  const detail = error.response?.data?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((issue: { msg?: string }) => issue.msg).filter(Boolean).join(" ") || fallback;
+  }
+  if (!error.response) {
+    return "Unable to connect to UrbanIQ. Start the backend server and try again.";
+  }
+  return fallback;
+}
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

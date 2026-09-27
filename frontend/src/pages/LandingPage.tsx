@@ -1,7 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import {
+  Activity,
+  ArrowRight,
+  ChartNoAxesColumnIncreasing,
+  ChevronDown,
+  Cross,
+  FileText,
+  MapPin,
+  Road,
+  Store,
+  UsersRound,
+} from "lucide-react";
 import type { BusinessType } from "../data/puneData";
+import "../styles/LandingPage.css";
 
 const businessTypes: BusinessType[] = [
   "Education Institute",
@@ -13,367 +25,105 @@ const businessTypes: BusinessType[] = [
   "Clinic",
 ];
 
+const features = [
+  { title: "Demographic Analysis", text: "Population density, age groups, sex ratio and more.", icon: UsersRound, tone: "blue" },
+  { title: "Competition Insights", text: "See existing businesses and market saturation.", icon: Store, tone: "green" },
+  { title: "Accessibility Analysis", text: "Roads, public transport and connectivity.", icon: MapPin, tone: "red" },
+  { title: "Explainable Scoring", text: "Get a weighted opportunity signal with detailed factors.", icon: ChartNoAxesColumnIncreasing, tone: "purple" },
+  { title: "Business Recommendations", text: "Clear suggestions with strengths and risks.", icon: FileText, tone: "yellow" },
+];
+
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
-  const [businessType, setBusinessType] = useState<BusinessType>("Education Institute");
+  const [businessType, setBusinessType] = useState<BusinessType>("Pharmacy");
   const [city, setCity] = useState("Pune");
+  const [location, setLocation] = useState("");
 
   const handleAnalyze = () => {
-    if (isAuthenticated) {
-      navigate(`/map?business=${encodeURIComponent(businessType)}&city=${encodeURIComponent(city)}`);
-    } else {
-      navigate("/login");
-    }
+    const query = new URLSearchParams({ business: businessType, city });
+    if (location.trim()) query.set("location", location.trim());
+    navigate(`/map?${query.toString()}`);
   };
 
   return (
-    <div className="app">
-      {/* NAVBAR */}
-      <header className="navbar">
-        <div className="logo">
-          Urban<span>IQ</span>
-        </div>
-
-        <nav className="nav-links">
-          <a href="#home">Home</a>
-          <a href="#how-it-works">How It Works</a>
-          <a href="#features">Features</a>
-          <a href="#data">Data</a>
+    <div className="landing-page" id="home">
+      <header className="landing-nav">
+        <a className="landing-brand" href="#home" aria-label="UrbanIQ home">
+          <span className="brand-pin"><MapPin size={29} fill="currentColor" /></span>
+          <span>Urban<span className="brand-iq">IQ</span></span>
+        </a>
+        <nav className="landing-links" aria-label="Main navigation">
+          <a className="is-active" href="#home">Home</a>
           <a href="#about">About</a>
+          <a href="#how-it-works">How It Works</a>
+          <a href="#data">City Data</a>
+          <a href="#features">Business Types</a>
+          <a href="#contact">Contact</a>
         </nav>
-
-        <div className="nav-actions">
-          {isAuthenticated ? (
-            <>
-              <button className="login-btn" onClick={() => navigate("/dashboard")}>
-                Dashboard
-              </button>
-              <button className="signup-btn" onClick={() => navigate("/iot")}>
-                IoT Devices
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="login-btn" onClick={() => navigate("/login")}>
-                Login
-              </button>
-              <button className="signup-btn" onClick={() => navigate("/signup")}>
-                Sign Up
-              </button>
-            </>
-          )}
+        <div className="landing-actions">
+          <button className="landing-cta" onClick={() => navigate("/map?business=Pharmacy&city=Pune")}>Start Free Analysis <ArrowRight size={16} /></button>
         </div>
       </header>
 
-      {/* HERO */}
-      <main id="home">
-        <section className="hero">
-          <div className="hero-left">
-            <div className="hero-badge">
-              <span className="badge-dot"></span>
-              AI-POWERED URBAN INTELLIGENCE
+      <main>
+        <section className="landing-hero">
+          <div className="hero-shade" />
+          <div className="hero-layout">
+            <div className="hero-copy">
+              <div className="hero-kicker"><Activity size={15} /> LOCATION INTELLIGENCE FOR BUSINESS</div>
+              <h1>Find the Best Location for Your <span>Business</span></h1>
+              <p>Make data-driven decisions with AI-powered insights on population, competition, accessibility and more.</p>
+              <div className="location-form">
+                <div className="location-fields">
+                  <label className="location-field">
+                    <span>Select City</span>
+                    <span className="select-wrap"><select value={city} onChange={(event) => setCity(event.target.value)}><option value="Pune">Pune, Maharashtra</option><option value="Mumbai">Mumbai, Maharashtra</option><option value="Nashik">Nashik, Maharashtra</option></select><ChevronDown size={16} /></span>
+                  </label>
+                  <label className="location-field">
+                    <span>Select Business Type</span>
+                    <span className="select-wrap"><select value={businessType} onChange={(event) => setBusinessType(event.target.value as BusinessType)}>{businessTypes.map((business) => <option key={business} value={business}>{business}</option>)}</select><ChevronDown size={16} /></span>
+                  </label>
+                  <label className="location-field location-search">
+                    <span>Choose Location</span>
+                    <span className="search-wrap"><MapPin size={19} /><input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Search area or click on map" /></span>
+                  </label>
+                </div>
+                <button className="analyze-location" onClick={handleAnalyze}><span>✦</span> Analyze Location <ArrowRight size={18} /></button>
+              </div>
             </div>
 
-            <h1>
-              Find the
-              <span> Right Location </span>
-              for Your Business.
-            </h1>
-
-            <p className="hero-description">
-              UrbanIQ analyzes population, competition, accessibility,
-              demographics and local business ecosystems to help identify
-              potential opportunities across urban areas.
-            </p>
-
-            {/* ANALYSIS CARD */}
-            <div className="analysis-card">
-              <div className="input-group">
-                <label>BUSINESS TYPE</label>
-                <select
-                  value={businessType}
-                  onChange={(event) => setBusinessType(event.target.value as BusinessType)}
-                >
-                  {businessTypes.map((business) => (
-                    <option key={business} value={business}>
-                      {business}
-                    </option>
-                  ))}
-                </select>
+            <div className="hero-map-art" aria-label="Illustration of location opportunity data">
+              <div className="heatmap-outline">
+                <div className="heatmap-glow glow-one" /><div className="heatmap-glow glow-two" /><div className="heatmap-glow glow-three" />
+                <div className="heatmap-grid" />
+                <div className="map-pin main-pin"><MapPin size={31} fill="currentColor" /></div>
+                <span className="map-pin mini-pin pin-a"><MapPin size={16} fill="currentColor" /></span>
+                <span className="map-pin mini-pin pin-b"><MapPin size={14} fill="currentColor" /></span>
+                <span className="map-pin mini-pin pin-c"><MapPin size={14} fill="currentColor" /></span>
               </div>
-
-              <div className="input-group">
-                <label>CITY</label>
-                <select value={city} onChange={(event) => setCity(event.target.value)}>
-                  <option value="Pune">Pune, Maharashtra</option>
-                  <option value="Mumbai">Mumbai, Maharashtra</option>
-                  <option value="Nashik">Nashik, Maharashtra</option>
-                </select>
-              </div>
-
-              <button className="analyze-btn" onClick={handleAnalyze}>
-                Analyze Location
-                <span>→</span>
-              </button>
-            </div>
-
-            {/* TRUST */}
-            <div className="hero-trust">
-              <div className="trust-item">
-                <strong>GIS</strong>
-                <span>Location Intelligence</span>
-              </div>
-
-              <div className="trust-line"></div>
-
-              <div className="trust-item">
-                <strong>AI</strong>
-                <span>Opportunity Analysis</span>
-              </div>
-
-              <div className="trust-line"></div>
-
-              <div className="trust-item">
-                <strong>DATA</strong>
-                <span>Evidence Based</span>
-              </div>
+              <div className="insight-chip chip-pop"><UsersRound /><span><strong>High Population</strong>Density</span></div>
+              <div className="insight-chip chip-store"><Store /><span><strong>7 Pharmacies</strong>Nearby</span></div>
+              <div className="insight-chip chip-road"><Road /><span><strong>Good</strong>Accessibility</span></div>
+              <div className="insight-chip chip-hospital"><Cross /><span><strong>3 Hospitals</strong>Nearby</span></div>
             </div>
           </div>
 
-          {/* HERO MAP PREVIEW */}
-          <div className="hero-right">
-            <div className="map-container">
-              <div className="map-top-label">
-                <span className="live-dot"></span>
-                PUNE OPPORTUNITY MAP (DEMO)
-              </div>
-
-              <div className="map-grid">
-                <div className="road road-1"></div>
-                <div className="road road-2"></div>
-                <div className="road road-3"></div>
-                <div className="road road-4"></div>
-
-                <div className="road road-horizontal-1"></div>
-                <div className="road road-horizontal-2"></div>
-                <div className="road road-horizontal-3"></div>
-
-                <div className="zone zone-green"></div>
-                <div className="zone zone-yellow"></div>
-                <div className="zone zone-red"></div>
-
-                <div className="location-marker marker-one">
-                  <span>92</span>
-                </div>
-
-                <div className="location-marker marker-two">
-                  <span>84</span>
-                </div>
-
-                <div className="location-marker marker-three">
-                  <span>68</span>
-                </div>
-              </div>
-
-              <div className="map-legend">
-                <div>
-                  <span className="legend-dot green"></span>
-                  High Opportunity
-                </div>
-                <div>
-                  <span className="legend-dot yellow"></span>
-                  Medium
-                </div>
-                <div>
-                  <span className="legend-dot red"></span>
-                  Low
-                </div>
-              </div>
-
-              <div className="map-score-card">
-                <small>PROTOTYPE DEMO</small>
-                <strong>92</strong>
-                <span>Education Institute</span>
-                <p>High student demand proxy</p>
-              </div>
-            </div>
+          <div className="landing-stats" id="data">
+            <div className="landing-stat"><UsersRound className="stat-blue" /><div><strong>35.56 Lakh</strong><span>Pune Population (PMC 2021–22)</span></div></div>
+            <div className="landing-stat"><ChartNoAxesColumnIncreasing className="stat-green" /><div><strong>7 Types</strong><span>Businesses to Analyze</span></div></div>
+            <div className="landing-stat"><Store className="stat-orange" /><div><strong>3 Cities</strong><span>Pune, Mumbai &amp; Nashik</span></div></div>
+            <div className="landing-stat"><Cross className="stat-blue" /><div><strong>2 km</strong><span>Competitor Search Radius</span></div></div>
+            <div className="landing-stat"><Road className="stat-slate" /><div><strong>OpenStreetMap</strong><span>Nearby Places Data</span></div></div>
           </div>
         </section>
 
-        {/* STATS */}
-        <section className="stats-section">
-          <div className="stat">
-            <strong>20 KM</strong>
-            <span>Study Radius</span>
-          </div>
-
-          <div className="stat-divider"></div>
-
-          <div className="stat">
-            <strong>7+</strong>
-            <span>Business Categories</span>
-          </div>
-
-          <div className="stat-divider"></div>
-
-          <div className="stat">
-            <strong>GIS</strong>
-            <span>Spatial Intelligence</span>
-          </div>
-
-          <div className="stat-divider"></div>
-
-          <div className="stat">
-            <strong>AI</strong>
-            <span>Opportunity Model</span>
-          </div>
+        <section className="landing-features" id="features">
+          <div className="landing-section-title"><h2>Why Choose <span>UrbanIQ?</span></h2><p>Comprehensive location analysis to help your business succeed.</p></div>
+          <div className="landing-feature-grid">{features.map(({ title, text, icon: Icon, tone }) => <article className="landing-feature-card" key={title}><div className={`feature-icon ${tone}`}><Icon size={28} /></div><h3>{title}</h3><p>{text}</p></article>)}</div>
         </section>
-
-        {/* HOW IT WORKS */}
-        <section id="how-it-works" className="section">
-          <div className="section-heading">
-            <span>HOW IT WORKS</span>
-            <h2>
-              From location data to
-              <br />
-              business opportunity.
-            </h2>
-            <p>
-              UrbanIQ combines multiple urban indicators to create a structured
-              location analysis.
-            </p>
-          </div>
-
-          <div className="steps">
-            <div className="step-card">
-              <div className="step-number">01</div>
-              <h3>Choose Business</h3>
-              <p>Select the business or service you are planning to establish.</p>
-            </div>
-
-            <div className="step-card">
-              <div className="step-number">02</div>
-              <h3>Analyze Location</h3>
-              <p>Select an area and analyze its surrounding urban characteristics.</p>
-            </div>
-
-            <div className="step-card">
-              <div className="step-number">03</div>
-              <h3>Process Data</h3>
-              <p>UrbanIQ combines demographic, geographic and business data.</p>
-            </div>
-
-            <div className="step-card">
-              <div className="step-number">04</div>
-              <h3>Get Opportunity</h3>
-              <p>Receive an opportunity score, map visualization and explanation.</p>
-            </div>
-          </div>
-        </section>
-
-        {/* FEATURES */}
-        <section id="features" className="features-section">
-          <div className="section-heading">
-            <span>URBANIQ INTELLIGENCE</span>
-            <h2>More than just a map.</h2>
-            <p>The platform evaluates multiple factors that influence location opportunities.</p>
-          </div>
-
-          <div className="feature-grid">
-            <div className="feature-card">
-              <div className="feature-icon">◉</div>
-              <h3>Population Intelligence</h3>
-              <p>Understand population concentration and potential demand around a location.</p>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon">◇</div>
-              <h3>Competition Analysis</h3>
-              <p>Identify nearby businesses and understand the competitive environment.</p>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon">⌖</div>
-              <h3>Accessibility</h3>
-              <p>Consider roads, transport and accessibility indicators.</p>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon">◎</div>
-              <h3>Business Ecosystem</h3>
-              <p>Analyze supporting services and surrounding businesses.</p>
-            </div>
-          </div>
-        </section>
-
-        {/* DATA */}
-        <section id="data" className="data-section">
-          <div>
-            <span className="section-label">DATA & INTELLIGENCE</span>
-            <h2>
-              Decisions backed by
-              <br />
-              location data.
-            </h2>
-            <p>
-              UrbanIQ combines geographic information, points of interest, demographic
-              indicators and business-specific factors to create a structured opportunity
-              analysis.
-            </p>
-          </div>
-
-          <div className="data-list">
-            <div>
-              <strong>01</strong>
-              <span>Geographic Data</span>
-            </div>
-            <div>
-              <strong>02</strong>
-              <span>Demographic Data</span>
-            </div>
-            <div>
-              <strong>03</strong>
-              <span>Business & POI Data</span>
-            </div>
-            <div>
-              <strong>04</strong>
-              <span>Accessibility Indicators</span>
-            </div>
-          </div>
-        </section>
-
-        {/* ABOUT */}
-        <section id="about" className="about-section">
-          <div className="about-box">
-            <span className="section-label">ABOUT URBANIQ</span>
-            <h2>
-              Turning urban data
-              <br />
-              into opportunity intelligence.
-            </h2>
-            <p>
-              UrbanIQ is designed as a location intelligence platform for entrepreneurs,
-              businesses and organizations that need to evaluate where a service or business
-              could have an opportunity.
-            </p>
-          </div>
-        </section>
+        <section className="landing-about" id="about"><span id="how-it-works" className="landing-anchor" /><span className="about-eyebrow">BUILT FOR BETTER BUSINESS DECISIONS</span><h2>Know the neighborhood before you invest.</h2><p>UrbanIQ brings city data, nearby businesses and accessibility signals together to help you compare locations with confidence.</p><a href="#features">Explore business insights <ArrowRight size={16} /></a></section>
       </main>
-
-      {/* FOOTER */}
-      <footer>
-        <div className="footer-logo">
-          Urban<span>IQ</span>
-        </div>
-        <p>Urban Opportunity Intelligence Platform</p>
-        <div className="footer-links">
-          <a href="#home">Privacy</a>
-          <a href="#home">Terms</a>
-          <a href="#home">Contact</a>
-        </div>
-        <div className="copyright">© 2026 UrbanIQ</div>
-      </footer>
+      <footer className="landing-footer" id="contact"><a className="landing-brand" href="#home"><span className="brand-pin"><MapPin size={24} fill="currentColor" /></span><span>Urban<span className="brand-iq">IQ</span></span></a><span>Location intelligence for growing businesses</span><span>© 2026 UrbanIQ</span></footer>
     </div>
   );
 }

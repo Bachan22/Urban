@@ -2323,6 +2323,70 @@ footer p {
   color: #8a9591;
 }
 
+.urban-competitor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.urban-competitor-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #e7ecea;
+  border-radius: 8px;
+  color: #17231f;
+  text-decoration: none;
+  background: #fbfdfc;
+}
+
+.urban-competitor-row:hover {
+  border-color: #a9d8cd;
+  background: #f2faf7;
+}
+
+.competitor-marker {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 7px;
+  color: #087f79;
+  background: #e3f5ee;
+}
+
+.competitor-name {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.competitor-name strong {
+  overflow: hidden;
+  color: #26332f;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.competitor-name small,
+.competitor-distance,
+.urban-competitor-more,
+.urban-competitor-empty {
+  color: #72807c;
+  font-size: 9px;
+}
+
+.competitor-distance { flex-shrink: 0; }
+.urban-competitor-more { margin: 2px 0 0; text-align: center; }
+.urban-competitor-empty { margin: 8px 0 0; line-height: 1.5; }
+
 
 /* =====================================================
    RESPONSIVE ANALYSIS DASHBOARD

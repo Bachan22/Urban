@@ -4,10 +4,6 @@ import {
   LayoutDashboard,
   MapPin,
   Target,
-  GitCompare,
-  Sliders,
-  TrendingUp,
-  MessageSquare,
   FileText,
   ChevronRight,
   ShieldAlert,
@@ -26,10 +22,6 @@ const navItems: NavItem[] = [
   { label: "Overview", path: "/dashboard", icon: <LayoutDashboard size={18} /> },
   { label: "GIS Map", path: "/map", icon: <MapPin size={18} /> },
   { label: "Opportunities", path: "/opportunities", icon: <Target size={18} /> },
-  { label: "Compare", path: "/compare", icon: <GitCompare size={18} /> },
-  { label: "Simulator", path: "/simulator", icon: <Sliders size={18} /> },
-  { label: "Future Outlook", path: "/future", icon: <TrendingUp size={18} /> },
-  { label: "Ask UrbanIQ", path: "/ask", icon: <MessageSquare size={18} /> },
   { label: "Reports", path: "/reports", icon: <FileText size={18} /> },
 ];
 

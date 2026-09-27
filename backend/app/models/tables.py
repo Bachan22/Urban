@@ -50,7 +50,7 @@ class IoTDeviceModel(Base):
     longitude = Column(Float, nullable=False)
     status = Column(String(20), default="offline")  # online, offline, error
     last_heartbeat = Column(DateTime, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    metadata_json = Column("metadata", JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 

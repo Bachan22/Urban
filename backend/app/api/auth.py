@@ -5,6 +5,7 @@ from backend.app.schemas.auth import UserCreate, UserLogin, TokenResponse, Token
 from backend.app.services.auth import AuthService
 from backend.app.core.security import decode_token
 from backend.app.models.tables import UserModel
+from backend.app.core.dependencies import get_current_user as get_authenticated_user
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -77,8 +78,7 @@ async def refresh_token(refresh_data: TokenRefresh):
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user(
-    current_user: UserModel = Depends(lambda db: db),  # placeholder
+    current_user: UserModel = Depends(get_authenticated_user),
 ):
     """Get current user info."""
-    from backend.app.core.dependencies import get_current_user
     return current_user

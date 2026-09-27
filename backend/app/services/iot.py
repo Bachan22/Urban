@@ -25,7 +25,7 @@ class IoTService:
             latitude=latitude,
             longitude=longitude,
             status="offline",
-            metadata=metadata or {},
+            metadata_json=metadata or {},
         )
         db.add(device)
         db.commit()

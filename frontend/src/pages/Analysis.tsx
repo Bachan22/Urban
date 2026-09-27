@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Download, ExternalLink } from "lucide-react";
+import "leaflet/dist/leaflet.css";
 import {
   MapContainer,
   TileLayer,
@@ -17,9 +19,15 @@ import type { Place } from "../services/overpass";
 import {
   calculateOpportunityScore,
 } from "../utils/opportunityScore";
+import { downloadAnalysisReport, saveAnalysisReport, type AnalysisReport } from "../utils/analysisReport";
 
 type AnalysisProps = {
   initialBusinessType?: BusinessType;
+  cityName?: string;
+  areaName?: string;
+  areaNotFound?: boolean;
+  initialCenter?: Location;
+  studyRadiusKm?: number;
   onBack: () => void;
 };
 
@@ -71,8 +79,24 @@ function StatCard({
   );
 }
 
+function distanceInMeters(from: Location, to: Location) {
+  const radians = (degrees: number) => (degrees * Math.PI) / 180;
+  const lat1 = radians(from.latitude);
+  const lat2 = radians(to.latitude);
+  const latDistance = lat2 - lat1;
+  const lonDistance = radians(to.longitude - from.longitude);
+  const haversine = Math.sin(latDistance / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(lonDistance / 2) ** 2;
+  return Math.round(6_371_000 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine)));
+}
+
 export default function Analysis({
   initialBusinessType = "Education Institute",
+  cityName = "Pune",
+  areaName = "",
+  areaNotFound = false,
+  initialCenter = puneData.center,
+  studyRadiusKm = puneData.studyRadiusKm,
   onBack,
 }: AnalysisProps) {
   const [businessType, setBusinessType] =
@@ -82,8 +106,8 @@ export default function Analysis({
 
   const [selectedLocation, setSelectedLocation] =
     useState<Location>({
-      latitude: puneData.center.latitude,
-      longitude: puneData.center.longitude,
+      latitude: initialCenter.latitude,
+      longitude: initialCenter.longitude,
     });
 
   const [businesses, setBusinesses] =
@@ -100,6 +124,11 @@ export default function Analysis({
 
   const [loading, setLoading] =
     useState(false);
+
+  const [hasCompletedAnalysis, setHasCompletedAnalysis] =
+    useState(false);
+
+  const [liveDataAvailable, setLiveDataAvailable] = useState(false);
 
   const [error, setError] =
     useState("");
@@ -131,7 +160,16 @@ export default function Analysis({
     });
 
     setLoading(true);
+    setHasCompletedAnalysis(false);
+    setLiveDataAvailable(false);
     setError("");
+    setBusinesses([]);
+    setHospitals([]);
+    setSchools([]);
+    setColleges([]);
+    setCompetition(65);
+    setSupportingEcosystem(80);
+    setStudentDemand(88);
 
     try {
       const data = await getBusinessData(
@@ -141,18 +179,22 @@ export default function Analysis({
         2000
       );
 
+      setLiveDataAvailable(true);
+
       setBusinesses(data.businesses);
       setHospitals(data.hospitals);
       setSchools(data.schools);
       setColleges(data.colleges);
 
+      const competitorCount = data.businesses.length + (
+        businessType === "Education Institute" ? data.schools.length + data.colleges.length : 0
+      );
       const competitionScore =
         Math.max(
           20,
           Math.min(
             95,
-            100 -
-              data.businesses.length * 4
+            100 - competitorCount * 4
           )
         );
 
@@ -205,23 +247,25 @@ export default function Analysis({
       }
     } catch (err) {
       console.error(err);
+      setLiveDataAvailable(false);
 
       setError(
         "Live location data is temporarily unavailable. Showing prototype analysis."
       );
     } finally {
       setLoading(false);
+      setHasCompletedAnalysis(true);
     }
   }
 
   useEffect(() => {
     analyzeLocation(
-      puneData.center.latitude,
-      puneData.center.longitude
+      initialCenter.latitude,
+      initialCenter.longitude
     );
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessType]);
+  }, [businessType, initialCenter.latitude, initialCenter.longitude]);
 
   const result =
     calculateOpportunityScore(
@@ -234,6 +278,39 @@ export default function Analysis({
         studentDemand,
       }
     );
+
+  const competitorPlaces = businessType === "Education Institute"
+    ? [...businesses, ...schools, ...colleges]
+    : businesses;
+  const report: AnalysisReport = {
+    generatedAt: new Date().toISOString(),
+    city: cityName,
+    areaName,
+    businessType,
+    latitude: selectedLocation.latitude,
+    longitude: selectedLocation.longitude,
+    radiusMeters: 2000,
+    dataStatus: liveDataAvailable ? "live" : "unavailable",
+    score: result.score,
+    level: result.level,
+    factors: result.factors,
+    explanations: result.explanation,
+    competitors: competitorPlaces.map((place) => ({
+      name: place.name,
+      category: place.category || businessType,
+      latitude: place.lat,
+      longitude: place.lon,
+    })),
+  };
+
+  useEffect(() => {
+    if (!hasCompletedAnalysis) return;
+    saveAnalysisReport(report);
+    // Save the latest completed POI list and current score for the Reports page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businesses, businessType, cityName, hasCompletedAnalysis, selectedLocation, result.score, result.level, competition, supportingEcosystem, studentDemand, liveDataAvailable, areaName]);
+
+  const handleDownloadReport = () => downloadAnalysisReport(report);
 
   return (
     <div className="urban-analysis">
@@ -376,11 +453,11 @@ export default function Analysis({
               </span>
 
               <strong>
-                Pune
+                {cityName}{areaName ? ` · ${areaName}` : ""}
               </strong>
 
               <small>
-                20 km urban radius
+                20 km study radius
               </small>
 
             </div>
@@ -436,7 +513,7 @@ export default function Analysis({
 
               <StatCard
                 label="Businesses"
-                value={businesses.length}
+                value={competitorPlaces.length}
                 icon="⌂"
               />
 
@@ -490,8 +567,8 @@ export default function Analysis({
 
           <MapContainer
             center={[
-              puneData.center.latitude,
-              puneData.center.longitude,
+              initialCenter.latitude,
+              initialCenter.longitude,
             ]}
             zoom={11}
             zoomControl={false}
@@ -511,11 +588,11 @@ export default function Analysis({
 
             <Circle
               center={[
-                puneData.center.latitude,
-                puneData.center.longitude,
+                initialCenter.latitude,
+                initialCenter.longitude,
               ]}
               radius={
-                puneData.studyRadiusKm *
+                studyRadiusKm *
                 1000
               }
               pathOptions={{
@@ -853,8 +930,8 @@ export default function Analysis({
 
             </div>
 
-            <button>
-              ↗
+            <button onClick={handleDownloadReport} disabled={!hasCompletedAnalysis || loading} aria-label="Download analysis report" title="Download report">
+              <Download size={17} />
             </button>
 
           </div>
@@ -869,6 +946,13 @@ export default function Analysis({
               <p>
                 {error}
               </p>
+            </div>
+          )}
+
+          {areaNotFound && !error && (
+            <div className="urban-warning">
+              <strong>Area not found</strong>
+              <p>Showing the {cityName} city center. Click your intended point on the map to run a precise local analysis.</p>
             </div>
           )}
 
@@ -998,7 +1082,7 @@ export default function Analysis({
                 </span>
 
                 <strong>
-                  {businesses.length}
+                  {competitorPlaces.length}
                 </strong>
               </div>
 
@@ -1034,6 +1118,36 @@ export default function Analysis({
 
             </div>
 
+          </div>
+
+
+          {/* NEARBY COMPETITORS */}
+
+          <div className="intelligence-section">
+            <div className="intelligence-section-heading">
+              <span>NEARBY COMPETITORS</span>
+              <small>{competitorPlaces.length} WITHIN 2 KM</small>
+            </div>
+            {competitorPlaces.length > 0 ? (
+              <div className="urban-competitor-list">
+                {competitorPlaces.slice(0, 8).map((place) => (
+                  <a
+                    className="urban-competitor-row"
+                    href={`https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lon}#map=17/${place.lat}/${place.lon}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    key={`competitor-${place.id}`}
+                  >
+                    <span className="competitor-marker"><ExternalLink size={13} /></span>
+                    <span className="competitor-name"><strong>{place.name}</strong><small>{place.category || businessType}</small></span>
+                    <span className="competitor-distance">{(distanceInMeters(selectedLocation, { latitude: place.lat, longitude: place.lon }) / 1000).toFixed(1)} km</span>
+                  </a>
+                ))}
+                {competitorPlaces.length > 8 && <p className="urban-competitor-more">+ {competitorPlaces.length - 8} more shown on the map</p>}
+              </div>
+            ) : (
+              <p className="urban-competitor-empty">No matching places found in this search area. Try another point on the map.</p>
+            )}
           </div>
 
 
