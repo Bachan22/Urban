@@ -1,142 +1,68 @@
-const OVERPASS_URL =
-  "https://overpass-api.de/api/interpreter";
+/**
+ * UrbanIQ Frontend POI Service
+ * Routes all OSM/Overpass queries through the backend proxy (/api/pois).
+ * Benefits:
+ * - Server-side multi-mirror failover (no browser CORS / block issues)
+ * - In-memory and disk caching
+ * - Rich categories (competitors, schools, colleges, hospitals, transit, offices)
+ * - No mock or silent fake fallbacks
+ */
 
-export type Place = {
-  id: number;
-  lat: number;
-  lon: number;
-  name: string;
-  category: string;
-};
+import { fetchPois } from "./api";
+import type { POIPlace, POIResponse } from "../types/api";
 
-const BUSINESS_QUERIES: Record<string, string> = {
-  "Education Institute": `
-    nwr["amenity"~"school|college|university|kindergarten|training_centre"]
-  `,
+export type Place = POIPlace;
 
-  Pharmacy: `
-    nwr["amenity"="pharmacy"]
-  `,
-
-  Restaurant: `
-    nwr["amenity"="restaurant"]
-  `,
-
-  Gym: `
-    nwr["leisure"="fitness_centre"]
-  `,
-
-  "Clothing Store": `
-    nwr["shop"="clothes"]
-  `,
-
-  Cafe: `
-    nwr["amenity"="cafe"]
-  `,
-
-  Clinic: `
-    nwr["amenity"="clinic"]
-  `,
-};
+export interface BusinessDataResult {
+  businesses: Place[];
+  hospitals: Place[];
+  schools: Place[];
+  colleges: Place[];
+  offices: Place[];
+  bus_stops: Place[];
+  railway_stations: Place[];
+  timestamp: string;
+  mirror: string;
+  from_cache: boolean;
+  poi_counts: Record<string, number>;
+  data_source?: string;
+  results_capped?: boolean;
+  calls_made?: number;
+  feature_statuses?: Record<string, string>;
+  data_quality?: {
+    overall_status: string;
+    category_statuses: Record<string, string>;
+    feature_statuses: Record<string, string>;
+    warnings: string[];
+  };
+}
 
 export async function getBusinessData(
   businessType: string,
   latitude: number,
   longitude: number,
-  radius = 2000
-) {
-  const businessQuery =
-    BUSINESS_QUERIES[businessType];
-
-  if (!businessQuery) {
-    throw new Error(
-      "Unsupported business type"
-    );
-  }
-
-  const query = `
-    [out:json][timeout:40];
-
-    (
-      ${businessQuery}
-      (around:${radius},${latitude},${longitude});
-
-      nwr["amenity"="hospital"]
-      (around:${radius},${latitude},${longitude});
-
-      nwr["amenity"="school"]
-      (around:${radius},${latitude},${longitude});
-
-      nwr["amenity"="college"]
-      (around:${radius},${latitude},${longitude});
-    );
-
-    out center;
-  `;
-
-  const response = await fetch(
-    `${OVERPASS_URL}?data=${encodeURIComponent(
-      query
-    )}`
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      "Unable to retrieve OpenStreetMap data"
-    );
-  }
-
-  const data = await response.json();
-
-  const businesses: Place[] = [];
-  const hospitals: Place[] = [];
-  const schools: Place[] = [];
-  const colleges: Place[] = [];
-
-  for (const element of data.elements ?? []) {
-    const lat =
-      element.lat ??
-      element.center?.lat;
-
-    const lon =
-      element.lon ??
-      element.center?.lon;
-
-    if (
-      lat === undefined ||
-      lon === undefined
-    ) {
-      continue;
-    }
-
-    const amenity =
-      element.tags?.amenity ?? "";
-
-    const place: Place = {
-      id: element.id,
-      lat,
-      lon,
-      name:
-        element.tags?.name ??
-        "Unnamed location",
-      category: amenity,
-    };
-
-    if (amenity === "hospital") {
-      hospitals.push(place);
-    } else if (amenity === "school") {
-      schools.push(place);
-    } else if (amenity === "college") {
-      colleges.push(place);
-    } else {
-      businesses.push(place);
-    }
-  }
+  radius = 2000,
+  debug = true,
+  signal?: AbortSignal
+): Promise<BusinessDataResult> {
+  const data: POIResponse = await fetchPois(businessType, latitude, longitude, radius, debug, signal);
 
   return {
-    businesses,
-    hospitals,
-    schools,
-    colleges,
+    businesses: data.businesses || [],
+    hospitals: data.hospitals || [],
+    schools: data.schools || [],
+    colleges: data.colleges || [],
+    offices: data.offices || [],
+    bus_stops: data.bus_stops || [],
+    railway_stations: data.railway_stations || [],
+    timestamp: data.timestamp || new Date().toISOString(),
+    mirror: data.mirror || "cached",
+    from_cache: Boolean(data.from_cache),
+    poi_counts: data.poi_counts || {},
+    data_source: data.data_source || "osm",
+    results_capped: Boolean(data.results_capped),
+    calls_made: data.calls_made || 0,
+    feature_statuses: data.feature_statuses,
+    data_quality: data.data_quality,
   };
 }

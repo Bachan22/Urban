@@ -21,6 +21,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/map" element={<MapPage />} />
+      <Route path="/analysis" element={<Navigate to="/map" replace />} />
       <Route element={<DashboardLayout />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/opportunities" element={<OpportunitiesPage />} />

@@ -5,6 +5,9 @@ import type {
   OpportunityResponse,
   CompetitionAnalysisResult,
   ServiceGapResult,
+  GeocodeResult,
+  ReverseGeocodeResult,
+  POIResponse,
 } from "../types/api";
 
 // All API calls go through this single base URL.
@@ -161,3 +164,118 @@ export async function getServiceGap(
     `/service-gap?category_id=${encodeURIComponent(categoryId)}&latitude=${lat}&longitude=${lon}&radius_meters=${radius}&population_proxy=${populationProxy}`
   );
 }
+
+// ──────────────────────────────────────────────
+// GEOCODING & POI PROXY (STAGES A & B)
+// ──────────────────────────────────────────────
+
+export async function geocodeLocation(
+  query: string,
+  city = "pune"
+): Promise<GeocodeResult> {
+  return fetchFromApi<GeocodeResult>("/geocode", {
+    method: "POST",
+    body: JSON.stringify({ query, city }),
+  });
+}
+
+export async function reverseGeocodeLocation(
+  lat: number,
+  lon: number
+): Promise<ReverseGeocodeResult> {
+  return fetchFromApi<ReverseGeocodeResult>(
+    `/reverse-geocode?lat=${lat}&lon=${lon}`
+  );
+}
+
+export async function fetchPois(
+  businessType: string,
+  lat: number,
+  lon: number,
+  radius = 2000,
+  debug = false,
+  signal?: AbortSignal
+): Promise<POIResponse> {
+  return fetchFromApi<POIResponse>(
+    `/pois?business_type=${encodeURIComponent(businessType)}&lat=${lat}&lon=${lon}&radius=${radius}${debug ? "&debug=true" : ""}`,
+    { signal }
+  );
+}
+
+// ──────────────────────────────────────────────
+// CANDIDATE AREA DISCOVERY (AREA RECOMMENDATION)
+// ──────────────────────────────────────────────
+
+export interface CandidateArea {
+  rank: number;
+  latitude: number;
+  longitude: number;
+  score: number;
+  level: string;
+  suitability_label: string;
+  confidence_level?: string;
+  recommendation_badge: string;
+  badge: string;
+  is_recommended: boolean;
+  landmark: string;
+  road: string;
+  locality: string;
+  has_verified_street: boolean;
+  street_status: string;
+  full_address: string;
+  competitors_500m: number;
+  demand_anchors_500m: number;
+  nearest_transit_dist_m: number;
+  distance_from_center_m: number;
+  market_archetype?: string;
+  factors: Record<string, number>;
+  factor_details?: {
+    name: string;
+    key: string;
+    value: number;
+    weight: number;
+    weightedContribution?: number;
+    description: string;
+    status: string;
+  }[];
+  why_here: string[];
+  risks: string[];
+  limitations: string[];
+  practical_recommendation?: string;
+}
+
+export interface RecommendAreasResponse {
+  status: string;
+  city: string;
+  business_type: string;
+  center: { latitude: number; longitude: number };
+  radius_meters: number;
+  suitability_advisory: string;
+  has_recommended_sites: boolean;
+  recommended_sites: CandidateArea[];
+  data_source: string;
+  timestamp?: string;
+}
+
+export async function fetchRecommendedAreas(
+  businessType: string,
+  lat: number,
+  lon: number,
+  radiusMeters = 2000,
+  cityName = "Mumbai",
+  signal?: AbortSignal
+): Promise<RecommendAreasResponse> {
+  return fetchFromApi<RecommendAreasResponse>("/recommend-sites", {
+    method: "POST",
+    body: JSON.stringify({
+      business_type: businessType,
+      latitude: lat,
+      longitude: lon,
+      radius_meters: radiusMeters,
+      city_name: cityName,
+    }),
+    signal,
+  });
+}
+
+

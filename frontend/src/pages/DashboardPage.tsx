@@ -283,7 +283,7 @@ export const DashboardPage: React.FC = () => {
       {loading && (
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", padding: "24px", color: "#64748b" }}>
           <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
-          <span>Running Fuzzy Logic Opportunity Engine…</span>
+          <span>Running Opportunity Scoring Engine…</span>
         </div>
       )}
 

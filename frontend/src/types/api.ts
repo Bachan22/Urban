@@ -93,3 +93,57 @@ export interface OpportunityRequest {
   population_proxy?: number;
   accessibility_proxy?: number;
 }
+
+export interface GeocodeResult {
+  latitude: number;
+  longitude: number;
+  display_name: string;
+  locality?: string;
+  is_outside_city?: boolean;
+  source?: string;
+}
+
+export interface ReverseGeocodeResult {
+  display_name: string;
+  name: string;
+  road: string;
+  suburb: string;
+  city: string;
+}
+
+export interface POIPlace {
+  id: number;
+  lat: number;
+  lon: number;
+  name: string;
+  category: string;
+  place_id?: string;
+  address?: string;
+  distance_meters?: number;
+  source?: string;
+}
+
+export interface POIResponse {
+  businesses: POIPlace[];
+  hospitals: POIPlace[];
+  schools: POIPlace[];
+  colleges: POIPlace[];
+  offices: POIPlace[];
+  bus_stops: POIPlace[];
+  railway_stations: POIPlace[];
+  timestamp: string;
+  mirror: string;
+  from_cache: boolean;
+  poi_counts: Record<string, number>;
+  data_source?: string;
+  results_capped?: boolean;
+  calls_made?: number;
+  feature_statuses?: Record<string, string>;
+  data_quality?: {
+    overall_status: string;
+    category_statuses: Record<string, string>;
+    feature_statuses: Record<string, string>;
+    warnings: string[];
+  };
+}
+

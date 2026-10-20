@@ -1,0 +1,455 @@
+{
+    "businesses":  [
+                       {
+                           "id":  9771229988,
+                           "lat":  19.2727795,
+                           "lon":  72.8647101,
+                           "name":  "Casedella",
+                           "category":  "Cafe"
+                       },
+                       {
+                           "id":  13626435492,
+                           "lat":  19.2817004,
+                           "lon":  72.8585715,
+                           "name":  "DBT Cafe",
+                           "category":  "Cafe"
+                       }
+                   ],
+    "hospitals":  [
+                      {
+                          "id":  4548656491,
+                          "lat":  19.2953061,
+                          "lon":  72.859127,
+                          "name":  "Balaji Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  4572621489,
+                          "lat":  19.2928354,
+                          "lon":  72.8616136,
+                          "name":  "Deepak Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7047581070,
+                          "lat":  19.2777521,
+                          "lon":  72.8648499,
+                          "name":  "Indra Maternity and Surgical Nursing Home",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7048439606,
+                          "lat":  19.2842284,
+                          "lon":  72.8657176,
+                          "name":  "Life Care Hospital, Mira Road",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7049698468,
+                          "lat":  19.292293,
+                          "lon":  72.8623956,
+                          "name":  "Thunga Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7050863021,
+                          "lat":  19.2938249,
+                          "lon":  72.862551,
+                          "name":  "Tanwar Hospital, Thane",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7050863022,
+                          "lat":  19.2787021,
+                          "lon":  72.8706922,
+                          "name":  "Aryan Child Healthcare Centre and Nursing Home",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7050863023,
+                          "lat":  19.279099,
+                          "lon":  72.8684829,
+                          "name":  "Gayatri Maternity and Ear Nose Throat Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7051832702,
+                          "lat":  19.2831714,
+                          "lon":  72.8659415,
+                          "name":  "Vipassana Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7052491973,
+                          "lat":  19.2836549,
+                          "lon":  72.8641579,
+                          "name":  "Sushrut Maternity and Surgical Nursing Home",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7054153830,
+                          "lat":  19.2812624,
+                          "lon":  72.87477,
+                          "name":  "Samartha Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7054385780,
+                          "lat":  19.2956485,
+                          "lon":  72.8603062,
+                          "name":  "Chirayu Superspeciality Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7054394705,
+                          "lat":  19.2844904,
+                          "lon":  72.870278,
+                          "name":  "A Care Orthopaedic and General Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7054869824,
+                          "lat":  19.2947131,
+                          "lon":  72.856134,
+                          "name":  "Shah Lifeline Hospital and Heart Institute Pvt. Ltd. - Thane",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7055603466,
+                          "lat":  19.2851499,
+                          "lon":  72.8635168,
+                          "name":  "Sai Aashirwad Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7079392138,
+                          "lat":  19.2980117,
+                          "lon":  72.8604738,
+                          "name":  "Jugura Hospital - Thane",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7086092369,
+                          "lat":  19.2907702,
+                          "lon":  72.8589047,
+                          "name":  "Al-Falah Health Care",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7663684010,
+                          "lat":  19.2975481,
+                          "lon":  72.848309,
+                          "name":  "Tembha Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  7663684047,
+                          "lat":  19.28336,
+                          "lon":  72.858214,
+                          "name":  "Dr. Farids Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  8816493843,
+                          "lat":  19.2966839,
+                          "lon":  72.8644811,
+                          "name":  "Family Care Hospitals",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  12777819069,
+                          "lat":  19.2842541,
+                          "lon":  72.8621952,
+                          "name":  "Wockhardt Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  12786048113,
+                          "lat":  19.2969701,
+                          "lon":  72.8648674,
+                          "name":  "Jain Multispeciality Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  13078411701,
+                          "lat":  19.2927424,
+                          "lon":  72.8503906,
+                          "name":  "MIRA Cancer Superspeciality Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  13686430035,
+                          "lat":  19.281044,
+                          "lon":  72.8571367,
+                          "name":  "Gayatri Hospital",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  352780597,
+                          "lat":  19.2893093,
+                          "lon":  72.8653853,
+                          "name":  "Riddhi Siddhi Hospital, Thane",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  1223708198,
+                          "lat":  19.2789334,
+                          "lon":  72.8685488,
+                          "name":  "Unnamed",
+                          "category":  "hospital"
+                      },
+                      {
+                          "id":  1459813923,
+                          "lat":  19.278265,
+                          "lon":  72.8645251,
+                          "name":  "Sheth P.V. Doshi Hospital",
+                          "category":  "hospital"
+                      }
+                  ],
+    "schools":  [
+                    {
+                        "id":  4548680289,
+                        "lat":  19.2946207,
+                        "lon":  72.8605886,
+                        "name":  "Unnamed",
+                        "category":  "school"
+                    },
+                    {
+                        "id":  5251354221,
+                        "lat":  19.2838839,
+                        "lon":  72.8650997,
+                        "name":  "Unnamed",
+                        "category":  "school"
+                    },
+                    {
+                        "id":  5251360221,
+                        "lat":  19.2842771,
+                        "lon":  72.8661934,
+                        "name":  "Unnamed",
+                        "category":  "school"
+                    },
+                    {
+                        "id":  12129208196,
+                        "lat":  19.2913331,
+                        "lon":  72.8665495,
+                        "name":  "Sardar Vallabhbhai Patel Vidlaya",
+                        "category":  "school"
+                    },
+                    {
+                        "id":  927828511,
+                        "lat":  19.2770565,
+                        "lon":  72.8688023,
+                        "name":  "Unnamed",
+                        "category":  "school"
+                    },
+                    {
+                        "id":  1000202105,
+                        "lat":  19.2955118,
+                        "lon":  72.8647345,
+                        "name":  "Seven Square Academy",
+                        "category":  "school"
+                    },
+                    {
+                        "id":  1014994613,
+                        "lat":  19.2853696,
+                        "lon":  72.8660591,
+                        "name":  "Unnamed",
+                        "category":  "school"
+                    },
+                    {
+                        "id":  1384662221,
+                        "lat":  19.2781364,
+                        "lon":  72.8598339,
+                        "name":  "Shanti Nagar Highschool Ground",
+                        "category":  "school"
+                    }
+                ],
+    "colleges":  [
+                     {
+                         "id":  1568437282,
+                         "lat":  19.2886685,
+                         "lon":  72.8600527,
+                         "name":  "Banegar College Ground",
+                         "category":  "college"
+                     }
+                 ],
+    "offices":  [
+                    {
+                        "id":  1225905709,
+                        "lat":  19.2883374,
+                        "lon":  72.8579912,
+                        "name":  "Alif Cafe",
+                        "category":  "office"
+                    },
+                    {
+                        "id":  1459813919,
+                        "lat":  19.2787904,
+                        "lon":  72.863338,
+                        "name":  "Poonam Chambers",
+                        "category":  "office"
+                    }
+                ],
+    "bus_stops":  [
+                      {
+                          "id":  4577377089,
+                          "lat":  19.298572,
+                          "lon":  72.8554854,
+                          "name":  "Azad Nagar",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  10247438179,
+                          "lat":  19.2820123,
+                          "lon":  72.8739458,
+                          "name":  "Silver Park",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  10247438180,
+                          "lat":  19.281395,
+                          "lon":  72.8585663,
+                          "name":  "Mira Road Station East",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  10248440099,
+                          "lat":  19.2883181,
+                          "lon":  72.8658287,
+                          "name":  "Shivar Garden",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  10251478078,
+                          "lat":  19.2821542,
+                          "lon":  72.8742401,
+                          "name":  "Silver Park",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  10251478080,
+                          "lat":  19.2816323,
+                          "lon":  72.8585072,
+                          "name":  "Mira Road Station",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  10251478083,
+                          "lat":  19.2835357,
+                          "lon":  72.8638375,
+                          "name":  "Umrao",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  10251478084,
+                          "lat":  19.280336,
+                          "lon":  72.870776,
+                          "name":  "Jangid Circle",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  12811906810,
+                          "lat":  19.2882582,
+                          "lon":  72.8654465,
+                          "name":  "Shivar Garden",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  12824002647,
+                          "lat":  19.2870726,
+                          "lon":  72.8675625,
+                          "name":  "Beverly Park",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  12824002648,
+                          "lat":  19.2868429,
+                          "lon":  72.8673591,
+                          "name":  "Beverly Park",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  12828297004,
+                          "lat":  19.2961658,
+                          "lon":  72.8642517,
+                          "name":  "Seven Squares School",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  12828297005,
+                          "lat":  19.2960684,
+                          "lon":  72.864309,
+                          "name":  "Seven Squares School",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  12828304509,
+                          "lat":  19.2950169,
+                          "lon":  72.859125,
+                          "name":  "Golden Nest Circle",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  12979221201,
+                          "lat":  19.2922228,
+                          "lon":  72.8719222,
+                          "name":  "Cinemax",
+                          "category":  "bus_stop"
+                      },
+                      {
+                          "id":  13686410743,
+                          "lat":  19.2813896,
+                          "lon":  72.858639,
+                          "name":  "Mira Road Station East",
+                          "category":  "bus_stop"
+                      }
+                  ],
+    "railway_stations":  [
+                             {
+                                 "id":  5122858908,
+                                 "lat":  19.2816975,
+                                 "lon":  72.8560676,
+                                 "name":  "Mira Road",
+                                 "category":  "railway_station"
+                             },
+                             {
+                                 "id":  9130240851,
+                                 "lat":  19.294238,
+                                 "lon":  72.8431291,
+                                 "name":  "Subhash Chandra Bose Ground",
+                                 "category":  "railway_station"
+                             },
+                             {
+                                 "id":  10299481539,
+                                 "lat":  19.2948117,
+                                 "lon":  72.849362,
+                                 "name":  "Shahid Bhagat Singh Garden",
+                                 "category":  "railway_station"
+                             },
+                             {
+                                 "id":  1485713537,
+                                 "lat":  19.2942391,
+                                 "lon":  72.8431271,
+                                 "name":  "Unnamed",
+                                 "category":  "railway_station"
+                             },
+                             {
+                                 "id":  1485713542,
+                                 "lat":  19.2948205,
+                                 "lon":  72.8493617,
+                                 "name":  "Unnamed",
+                                 "category":  "railway_station"
+                             }
+                         ],
+    "timestamp":  "2026-10-20T11:21:15Z",
+    "mirror":  "https://overpass-api.de/api/interpreter",
+    "from_cache":  false,
+    "poi_counts":  {
+                       "businesses":  2,
+                       "hospitals":  27,
+                       "schools":  8,
+                       "colleges":  1,
+                       "offices":  2,
+                       "bus_stops":  16,
+                       "railway_stations":  5
+                   }
+}

@@ -4,6 +4,7 @@ from backend.app.api.endpoints import router as api_router
 from backend.app.api.auth import router as auth_router
 from backend.app.api.iot import router as iot_router
 from backend.app.api.admin import router as admin_router
+from backend.app.api.geo_poi import router as geo_poi_router
 
 # Initialize FastAPI application with project metadata
 app = FastAPI(
@@ -32,6 +33,17 @@ app.include_router(api_router)
 app.include_router(auth_router)
 app.include_router(iot_router)
 app.include_router(admin_router)
+app.include_router(geo_poi_router)
+
+
+@app.on_event("startup")
+def startup_event():
+    """Ensure database tables and initial seed data exist."""
+    from backend.app.database.init_db import init_database
+    try:
+        init_database()
+    except Exception as e:
+        print(f"Startup DB init notice: {e}")
 
 
 @app.get("/")

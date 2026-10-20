@@ -5,7 +5,8 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 
 from backend.app.database.connection import engine, Base, SessionLocal
-from backend.app.models.tables import CityModel, ZoneModel
+from backend.app.models.tables import CityModel, ZoneModel, UserModel, UserRole
+from backend.app.core.security import get_password_hash
 
 
 def init_database():
@@ -95,7 +96,29 @@ def init_database():
             ]
             db.add_all(zones)
             db.commit()
-            print("Pune study zones seeded.")
+        # Seed initial users
+        existing_admin = db.query(UserModel).filter_by(email="admin@example.com").first()
+        if not existing_admin:
+            print("Seeding initial users...")
+            admin_user = UserModel(
+                email="admin@example.com",
+                username="admin",
+                full_name="Admin User",
+                hashed_password=get_password_hash("admin123"),
+                role=UserRole.ADMIN,
+                is_active=True,
+            )
+            test_user = UserModel(
+                email="test@example.com",
+                username="testuser",
+                full_name="Test User",
+                hashed_password=get_password_hash("password123"),
+                role=UserRole.USER,
+                is_active=True,
+            )
+            db.add_all([admin_user, test_user])
+            db.commit()
+            print("Users seeded.")
 
         print("Database initialization complete.")
     finally:
