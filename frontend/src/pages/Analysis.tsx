@@ -132,7 +132,7 @@ export default function Analysis({
   const [resultsCapped, setResultsCapped] = useState<boolean>(false);
   const [callsMade, setCallsMade] = useState<number>(0);
   const [featureStatuses, setFeatureStatuses] = useState<Record<string, string>>({});
-  const [dataQuality, setDataQuality] = useState<any>(null);
+  const [, setDataQuality] = useState<any>(null);
 
   const navigate = useNavigate();
   const [currentAreaName, setCurrentAreaName] = useState<string>(areaName || "");
@@ -239,106 +239,106 @@ export default function Analysis({
     window.history.replaceState(null, "", `${window.location.pathname}?${urlParams.toString()}`);
 
     try {
-      const [poiRes, recRes] = await Promise.allSettled([
-        getBusinessData(
+      // 1. Fetch POI data first so Map, Local Intelligence, and Opportunity Scores show up IMMEDIATELY!
+      try {
+        const data = await getBusinessData(
           businessType,
           latitude,
           longitude,
           targetRadiusKm * 1000,
           true,
           controller.signal
-        ),
-        fetchRecommendedAreas(
+        );
+
+        if (currentRequestId === activeRequestIdRef.current) {
+          setLiveDataAvailable(true);
+          setDataSource(data.data_source || "osm");
+          setResultsCapped(Boolean(data.results_capped));
+          setCallsMade(data.calls_made || 0);
+
+          // Client-side strict radius filter and deduplication guard
+          const filterByRadius = (places: Place[] = []) => {
+            const maxMeters = targetRadiusKm * 1000;
+            const seen = new Set<string>();
+            const valid: Place[] = [];
+            for (const p of places) {
+              if (p.lat === undefined || p.lon === undefined) continue;
+              const dist = distanceInMeters({ latitude, longitude }, { latitude: p.lat, longitude: p.lon });
+              if (dist <= maxMeters) {
+                const key = `${p.name.trim().toLowerCase()}_${p.lat.toFixed(4)}_${p.lon.toFixed(4)}`;
+                if (!seen.has(key)) {
+                  seen.add(key);
+                  valid.push({ ...p, distance_meters: Math.round(dist) });
+                }
+              }
+            }
+            return valid.sort((a, b) => (a.distance_meters || 0) - (b.distance_meters || 0));
+          };
+
+          setBusinesses(filterByRadius(data.businesses));
+          setHospitals(filterByRadius(data.hospitals));
+          setSchools(filterByRadius(data.schools));
+          setColleges(filterByRadius(data.colleges));
+          setOffices(filterByRadius(data.offices));
+          setTransitStops(filterByRadius([
+            ...(data.bus_stops || []),
+            ...(data.railway_stations || []),
+          ]));
+          setFeatureStatuses(data.feature_statuses || {});
+          setDataQuality(data.data_quality || null);
+          setLoading(false);
+          setHasCompletedAnalysis(true);
+        }
+      } catch (poiErr: any) {
+        if (poiErr.name !== "AbortError") {
+          console.error("POI analysis fetch failed:", poiErr);
+          if (currentRequestId === activeRequestIdRef.current) {
+            setLiveDataAvailable(false);
+            setFeatureStatuses({
+              competitors: "unavailable",
+              transit: "unavailable",
+              civic: "unavailable",
+              demand: "unavailable",
+            });
+            setDataQuality({ overall_status: "degraded", warnings: ["Data source query failed or timed out."] });
+            setError("Failed to fetch POI data for this radius. Please retry.");
+            setLoading(false);
+            setHasCompletedAnalysis(true);
+          }
+        }
+      }
+
+      // 2. Fetch candidate area recommendations in background without blocking scores/map
+      try {
+        const recData = await fetchRecommendedAreas(
           businessType,
           latitude,
           longitude,
           targetRadiusKm * 1000,
           cityName,
           controller.signal
-        ),
-      ]);
+        );
 
-      // Ignore late responses from prior in-flight searches
-      if (currentRequestId !== activeRequestIdRef.current) return;
-
-      if (poiRes.status === "fulfilled") {
-        const data = poiRes.value;
-        setLiveDataAvailable(true);
-        setDataSource(data.data_source || "osm");
-        setResultsCapped(Boolean(data.results_capped));
-        setCallsMade(data.calls_made || 0);
-
-        // Client-side strict radius filter and deduplication guard
-        const filterByRadius = (places: Place[] = []) => {
-          const maxMeters = targetRadiusKm * 1000;
-          const seen = new Set<string>();
-          const valid: Place[] = [];
-          for (const p of places) {
-            if (p.lat === undefined || p.lon === undefined) continue;
-            const dist = distanceInMeters({ latitude, longitude }, { latitude: p.lat, longitude: p.lon });
-            if (dist <= maxMeters) {
-              const key = `${p.name.trim().toLowerCase()}_${p.lat.toFixed(4)}_${p.lon.toFixed(4)}`;
-              if (!seen.has(key)) {
-                seen.add(key);
-                valid.push({ ...p, distance_meters: Math.round(dist) });
-              }
-            }
-          }
-          return valid.sort((a, b) => (a.distance_meters || 0) - (b.distance_meters || 0));
-        };
-
-        setBusinesses(filterByRadius(data.businesses));
-        setHospitals(filterByRadius(data.hospitals));
-        setSchools(filterByRadius(data.schools));
-        setColleges(filterByRadius(data.colleges));
-        setOffices(filterByRadius(data.offices));
-        setTransitStops(filterByRadius([
-          ...(data.bus_stops || []),
-          ...(data.railway_stations || []),
-        ]));
-        setFeatureStatuses(data.feature_statuses || {});
-        setDataQuality(data.data_quality || null);
-      } else {
-        if (poiRes.reason?.name !== "AbortError") {
-          console.error("POI analysis fetch failed:", poiRes.reason);
-          setLiveDataAvailable(false);
-          setFeatureStatuses({
-            competitors: "unavailable",
-            transit: "unavailable",
-            civic: "unavailable",
-            demand: "unavailable",
-          });
-          setDataQuality({ overall_status: "degraded", warnings: ["Data source query failed or timed out."] });
-          setError("Failed to fetch POI data for this radius. Please retry.");
+        if (currentRequestId === activeRequestIdRef.current) {
+          setRecommendedAreas(recData.recommended_sites || []);
+          setSuitabilityAdvisory(recData.suitability_advisory || "");
+          setLoadingRecommendations(false);
         }
-      }
-
-      if (recRes.status === "fulfilled") {
-        setRecommendedAreas(recRes.value.recommended_sites || []);
-        setSuitabilityAdvisory(recRes.value.suitability_advisory || "");
-      } else {
-        if (recRes.reason?.name !== "AbortError") {
-          console.warn("Candidate area recommendations fetch failed:", recRes.reason);
+      } catch (recErr: any) {
+        if (recErr.name !== "AbortError") {
+          console.warn("Candidate area recommendations fetch failed:", recErr);
+          if (currentRequestId === activeRequestIdRef.current) {
+            setLoadingRecommendations(false);
+          }
         }
       }
     } catch (err: any) {
       if (err.name === "AbortError") return;
       if (currentRequestId !== activeRequestIdRef.current) return;
       console.error("Analysis fetch failed:", err);
-      setLiveDataAvailable(false);
-      setFeatureStatuses({
-        competitors: "unavailable",
-        transit: "unavailable",
-        civic: "unavailable",
-        demand: "unavailable",
-      });
-      setError("Failed to fetch data for this location. Please retry.");
-    } finally {
-      if (currentRequestId === activeRequestIdRef.current) {
-        setLoading(false);
-        setLoadingRecommendations(false);
-        setHasCompletedAnalysis(true);
-      }
+      setLoading(false);
+      setLoadingRecommendations(false);
+      setHasCompletedAnalysis(true);
     }
   }
 
@@ -636,25 +636,25 @@ export default function Analysis({
 
               <StatCard
                 label="Businesses"
-                value={competitorPlaces.length}
+                value={loading ? "..." : (error ? "—" : competitorPlaces.length)}
                 icon="⌂"
               />
 
               <StatCard
                 label="Schools"
-                value={schools.length}
+                value={loading ? "..." : (error ? "—" : schools.length)}
                 icon="▣"
               />
 
               <StatCard
                 label="Colleges"
-                value={colleges.length}
+                value={loading ? "..." : (error ? "—" : colleges.length)}
                 icon="◆"
               />
 
               <StatCard
                 label="Hospitals"
-                value={hospitals.length}
+                value={loading ? "..." : (error ? "—" : hospitals.length)}
                 icon="+"
               />
 
@@ -998,54 +998,54 @@ export default function Analysis({
           </div>
 
 
-          {error && (
-            <div className="urban-warning">
-              <strong>
-                Prototype data
-              </strong>
-
-              <p>
-                {error}
+          {loading ? (
+            <div style={{ padding: "40px 16px", textAlign: "center" }}>
+              <div className="urban-spinner" style={{ width: "32px", height: "32px", margin: "0 auto 16px auto" }}></div>
+              <h3 style={{ fontSize: "15px", fontWeight: 600, color: "#1e293b", margin: "0 0 6px 0" }}>
+                Analyzing Catchment Area...
+              </h3>
+              <p style={{ fontSize: "12px", color: "#64748b", margin: 0, lineHeight: 1.5 }}>
+                Querying live point-of-interest data, transit access, and local commercial saturation for <strong>{businessType}</strong> within {radiusKm} km.
               </p>
             </div>
-          )}
-
-          {areaNotFound && !error && (
-            <div className="urban-warning">
-              <strong>Area not found</strong>
-              <p>Showing the {cityName} city center. Click your intended point on the map to run a precise local analysis.</p>
+          ) : error ? (
+            <div style={{ padding: "24px 16px", textAlign: "center" }}>
+              <div style={{ fontSize: "28px", marginBottom: "8px" }}>⚠️</div>
+              <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#991b1b", margin: "0 0 6px 0" }}>
+                Analysis Failed
+              </h3>
+              <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 16px 0", lineHeight: 1.5 }}>
+                {error}
+              </p>
+              <button
+                onClick={() => analyzeLocation(selectedLocation.latitude, selectedLocation.longitude)}
+                className="urban-btn-primary"
+                style={{ fontSize: "12px", padding: "6px 14px", cursor: "pointer" }}
+              >
+                Retry Analysis
+              </button>
             </div>
-          )}
+          ) : !hasCompletedAnalysis ? (
+            <div style={{ padding: "40px 16px", textAlign: "center", color: "#64748b" }}>
+              <div style={{ fontSize: "28px", marginBottom: "8px" }}>📍</div>
+              <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#1e293b", margin: "0 0 6px 0" }}>
+                Select a Location
+              </h3>
+              <p style={{ fontSize: "12px", margin: 0, lineHeight: 1.5 }}>
+                Choose a business category and location on the map to compute suitability scores and discover candidate locations.
+              </p>
+            </div>
+          ) : (
+            <>
+              {areaNotFound && (
+                <div className="urban-warning">
+                  <strong>Area not found</strong>
+                  <p>Showing the {cityName} city center. Click your intended point on the map to run a precise local analysis.</p>
+                </div>
+              )}
 
-
-          {/* DATA CONFIDENCE & SOFT COMPUTING BADGES */}
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", margin: "14px 0 8px 0" }}>
-            <span
-              style={{
-                fontSize: "11px",
-                fontWeight: 600,
-                padding: "3px 8px",
-                borderRadius: "6px",
-                background: result.confidenceLevel === "High" ? "#dcfce7" : (result.confidenceLevel === "Medium" ? "#fef3c7" : "#fee2e2"),
-                color: result.confidenceLevel === "High" ? "#15803d" : (result.confidenceLevel === "Medium" ? "#b45309" : "#b91c1c"),
-                border: "1px solid rgba(0,0,0,0.06)",
-              }}
-            >
-              ● Confidence: {result.confidenceLevel}{result.isProvisional ? " (Provisional)" : ""}
-            </span>
-            <span
-              style={{
-                fontSize: "11px",
-                fontWeight: 600,
-                padding: "3px 8px",
-                borderRadius: "6px",
-                background: dataQuality?.overall_status === "complete" ? "#f0fdf4" : (dataQuality?.overall_status === "degraded" ? "#fef2f2" : "#f8fafc"),
-                color: dataQuality?.overall_status === "complete" ? "#166534" : (dataQuality?.overall_status === "degraded" ? "#991b1b" : "#475569"),
-                border: "1px solid #e2e8f0",
-              }}
-            >
-              Data: {dataQuality?.overall_status ? dataQuality.overall_status.toUpperCase() : "STANDARD"}
-            </span>
+              {/* ACTION LINKS */}
+          <div style={{ display: "flex", justifyContent: "flex-end", margin: "14px 0 8px 0" }}>
             <a
               href="/compare"
               style={{
@@ -1057,7 +1057,6 @@ export default function Analysis({
                 color: "#2563eb",
                 textDecoration: "none",
                 border: "1px solid #cbd5e1",
-                marginLeft: "auto",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "4px",
@@ -1067,30 +1066,32 @@ export default function Analysis({
             </a>
           </div>
 
-          {result.missingDataWarnings && result.missingDataWarnings.length > 0 && (
-            <div style={{ fontSize: "11px", color: "#b45309", background: "#fffbeb", border: "1px solid #fef3c7", padding: "8px 12px", borderRadius: "8px", margin: "8px 0 14px 0" }}>
-              <strong>Data Notice: </strong>
-              {result.missingDataWarnings.join(" ")}
-            </div>
-          )}
+
 
           {/* =====================================
               AREA DISCOVERY & SITE RECOMMENDATIONS
           ===================================== */}
+          {/* =====================================
+              RECOMMENDED LOCATIONS / ALTERNATIVE AREAS (UP TO 4 CANDIDATES)
+          ===================================== */}
           <div className="intelligence-section" style={{ background: "#f8fafc", padding: "14px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "16px" }}>
             <div className="intelligence-section-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-              <span style={{ color: "#0f172a", fontWeight: 700 }}>AREA DISCOVERY ENGINE</span>
+              <span style={{ color: "#0f172a", fontWeight: 700 }}>
+                {recommendedAreas.length > 0 && recommendedAreas.every((c) => c.score < 50)
+                  ? "Alternative Areas — Below Suitability Threshold"
+                  : "Recommended Locations"}
+              </span>
               <small style={{ color: "#2563eb", fontWeight: 700 }}>STUDY RADIUS: {radiusKm} KM</small>
             </div>
 
             {loadingRecommendations ? (
               <div style={{ fontSize: "12px", color: "#64748b", padding: "14px 0", textAlign: "center" }}>
                 <span className="urban-spinner" style={{ width: "16px", height: "16px", display: "inline-block", verticalAlign: "middle", marginRight: "8px" }}></span>
-                Discovering and ranking candidate zones across study area...
+                Discovering and ranking candidate locations across study area...
               </div>
             ) : recommendedAreas.length === 0 ? (
               <div style={{ fontSize: "12px", color: "#64748b", padding: "8px 0" }}>
-                No candidate areas currently detected within this boundary.
+                No candidate locations currently detected within this {radiusKm} km study circle.
               </div>
             ) : (
               <div>
@@ -1112,12 +1113,36 @@ export default function Analysis({
                   </div>
                 )}
 
-                {/* Candidate Area Cards */}
+                {recommendedAreas.every((c) => c.score < 50) && (
+                  <div style={{ fontSize: "11px", color: "#991b1b", background: "#fef2f2", border: "1px solid #fecaca", padding: "8px 10px", borderRadius: "6px", marginBottom: "12px" }}>
+                    <strong>Notice: </strong>No candidate area within this radius meets the minimum suitability threshold (≥ 50/100). The shortlisted locations below represent relative alternatives for consideration, not qualifying recommendations.
+                  </div>
+                )}
+
+                {recommendedAreas.length < 4 && (
+                  <div style={{ fontSize: "11px", color: "#64748b", background: "#f1f5f9", padding: "6px 10px", borderRadius: "6px", marginBottom: "10px" }}>
+                    Only {recommendedAreas.length} candidate {recommendedAreas.length === 1 ? "location was" : "locations were"} identified within this {radiusKm} km boundary meeting separation criteria.
+                  </div>
+                )}
+
+                {/* Candidate Area Cards (Up to 4) */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {recommendedAreas.slice(0, 5).map((cand) => {
+                  {recommendedAreas.slice(0, 4).map((cand) => {
                     const isTop = cand.rank === 1;
                     const badgeBg = cand.score >= 70 ? "#16a34a" : (cand.score >= 50 ? "#d97706" : "#64748b");
                     const scoreColor = cand.score >= 70 ? "#15803d" : (cand.score >= 50 ? "#d97706" : "#dc2626");
+
+                    // Reason for consideration (first supported reason or driver)
+                    const reason = cand.why_here?.[0] || cand.practical_recommendation || "Moderate commercial activity with viable local access.";
+                    // Data-confidence / limitation warning
+                    const dataWarning = cand.limitations?.[0] || (!cand.has_verified_street ? "Exact street unverified; approximate zone." : null);
+
+                    // Accurate badge text: distinguish recommended, moderate candidate, and below-threshold alternative
+                    const displayBadge = cand.score >= 70
+                      ? "Recommended Area"
+                      : cand.score >= 50
+                      ? (isTop ? "Highest-Ranked Candidate" : "Candidate Area")
+                      : (isTop ? "Top Alternative (Below Threshold)" : "Alternative (Below Threshold)");
 
                     return (
                       <div
@@ -1125,11 +1150,12 @@ export default function Analysis({
                         style={{
                           background: isTop ? "#ffffff" : "#fbfcfe",
                           borderRadius: "8px",
-                          border: isTop ? "2px solid #3b82f6" : "1px solid #cbd5e1",
+                          border: isTop ? (cand.score >= 50 ? "2px solid #3b82f6" : "2px solid #94a3b8") : "1px solid #cbd5e1",
                           padding: "10px 12px",
-                          boxShadow: isTop ? "0 2px 8px rgba(59, 130, 246, 0.1)" : "none",
+                          boxShadow: isTop ? "0 2px 8px rgba(0, 0, 0, 0.06)" : "none",
                         }}
                       >
+                        {/* 1. Rank & 3. Overall suitability score */}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
                           <span
                             style={{
@@ -1141,7 +1167,7 @@ export default function Analysis({
                               color: "white",
                             }}
                           >
-                            #{cand.rank} {cand.badge}
+                            #{cand.rank} {displayBadge}
                           </span>
 
                           <span style={{ fontSize: "15px", fontWeight: 800, color: scoreColor }}>
@@ -1149,10 +1175,15 @@ export default function Analysis({
                           </span>
                         </div>
 
+                        {/* 2. Locality or coordinates */}
                         <div style={{ fontWeight: 700, fontSize: "12px", color: "#0f172a", marginBottom: "3px" }}>
                           {cand.landmark}
                         </div>
+                        <div style={{ fontSize: "10px", color: "#64748b", marginBottom: "6px" }}>
+                          Coordinates: {cand.latitude.toFixed(4)}, {cand.longitude.toFixed(4)} · {cand.distance_from_center_m}m from centre
+                        </div>
 
+                        {/* 5. Competitor count & 6. Demand/access/transport indicators */}
                         <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: "6px", flexWrap: "wrap" }}>
                           <span
                             style={{
@@ -1160,28 +1191,36 @@ export default function Analysis({
                               fontWeight: 600,
                               padding: "1px 5px",
                               borderRadius: "4px",
-                              background: cand.has_verified_street ? "#dcfce7" : "#fef3c7",
-                              color: cand.has_verified_street ? "#166534" : "#92400e",
-                              border: `1px solid ${cand.has_verified_street ? "#bbf7d0" : "#fde68a"}`,
+                              background: cand.competitors_500m === 0 ? "#ecfdf5" : (cand.competitors_500m <= 2 ? "#eff6ff" : "#fef2f2"),
+                              color: cand.competitors_500m === 0 ? "#065f46" : (cand.competitors_500m <= 2 ? "#1e40af" : "#991b1b"),
+                              border: `1px solid ${cand.competitors_500m === 0 ? "#a7f3d0" : (cand.competitors_500m <= 2 ? "#bfdbfe" : "#fecaca")}`,
                             }}
                           >
-                            {cand.has_verified_street ? "Verified Street" : "Approximate Zone (Street unverified)"}
+                            {cand.competitors_500m} competitors (500m)
                           </span>
-                          <span style={{ fontSize: "10px", color: "#64748b" }}>
-                            {cand.competitors_500m} competitors · {cand.nearest_transit_dist_m}m to transit
+                          <span style={{ fontSize: "10px", color: "#475569" }}>
+                            {cand.nearest_transit_dist_m ? `~${cand.nearest_transit_dist_m}m to transit` : "Transit distance unmapped"}
                           </span>
-                        </div>
-
-                        <div style={{ fontSize: "11px", color: "#475569", lineHeight: 1.4, marginBottom: "8px" }}>
-                          <div style={{ color: "#15803d" }}>✓ {cand.why_here[0]}</div>
-                          <div style={{ color: "#b91c1c" }}>⚠ {cand.risks[0]}</div>
-                          {cand.limitations?.[0] && (
-                            <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px", fontStyle: "italic" }}>
-                              Notice: {cand.limitations[0]}
-                            </div>
+                          {cand.demand_anchors_500m > 0 && (
+                            <span style={{ fontSize: "10px", color: "#475569" }}>
+                              · {cand.demand_anchors_500m} demand anchors
+                            </span>
                           )}
                         </div>
 
+                        {/* 4. One-sentence reason for consideration */}
+                        <div style={{ fontSize: "11px", color: "#15803d", lineHeight: 1.4, marginBottom: "4px" }}>
+                          ✓ {reason}
+                        </div>
+
+                        {/* 7. Data-confidence warning, if applicable */}
+                        {dataWarning && (
+                          <div style={{ fontSize: "10px", color: "#b45309", background: "#fffbeb", border: "1px solid #fef3c7", padding: "4px 8px", borderRadius: "4px", marginBottom: "8px" }}>
+                            Notice: {dataWarning}
+                          </div>
+                        )}
+
+                        {/* 8. Actions: Compare and Set as Centre */}
                         <div style={{ display: "flex", gap: "6px" }}>
                           <button
                             id={`btn-set-center-${cand.rank}`}
@@ -1246,6 +1285,69 @@ export default function Analysis({
                     );
                   })}
                 </div>
+
+                {/* Compact Side-by-Side Comparison View for All Candidates */}
+                {recommendedAreas.length >= 2 && (
+                  <div style={{ marginTop: "14px", borderTop: "1px solid #e2e8f0", paddingTop: "12px" }}>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "#334155", marginBottom: "8px", textTransform: "uppercase" }}>
+                      Candidate Comparison (Side-by-Side)
+                    </div>
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px", textAlign: "left" }}>
+                        <thead>
+                          <tr style={{ background: "#f1f5f9", borderBottom: "1px solid #cbd5e1" }}>
+                            <th style={{ padding: "6px 8px", fontWeight: 700, color: "#1e293b" }}>Rank</th>
+                            <th style={{ padding: "6px 8px", fontWeight: 700, color: "#1e293b" }}>Locality</th>
+                            <th style={{ padding: "6px 8px", fontWeight: 700, color: "#1e293b" }}>Score</th>
+                            <th style={{ padding: "6px 8px", fontWeight: 700, color: "#1e293b" }}>Competitors</th>
+                            <th style={{ padding: "6px 8px", fontWeight: 700, color: "#1e293b" }}>Transit</th>
+                            <th style={{ padding: "6px 8px", fontWeight: 700, color: "#1e293b" }}>Key Reason</th>
+                            <th style={{ padding: "6px 8px", fontWeight: 700, color: "#1e293b" }}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recommendedAreas.slice(0, 4).map((cand) => (
+                            <tr key={cand.rank} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                              <td style={{ padding: "6px 8px", fontWeight: 700, color: "#2563eb" }}>#{cand.rank}</td>
+                              <td style={{ padding: "6px 8px", color: "#0f172a", maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={cand.landmark}>
+                                <div>{cand.landmark}</div>
+                                <div style={{ fontSize: "9px", color: "#94a3b8" }}>{cand.latitude.toFixed(4)}, {cand.longitude.toFixed(4)}</div>
+                              </td>
+                              <td style={{ padding: "6px 8px", fontWeight: 700, color: cand.score >= 70 ? "#15803d" : (cand.score >= 50 ? "#d97706" : "#dc2626") }}>
+                                {cand.score}/100
+                              </td>
+                              <td style={{ padding: "6px 8px", color: "#475569" }}>{cand.competitors_500m}</td>
+                              <td style={{ padding: "6px 8px", color: "#475569" }}>{cand.nearest_transit_dist_m ? `${cand.nearest_transit_dist_m}m` : "—"}</td>
+                              <td style={{ padding: "6px 8px", color: "#334155", maxWidth: "200px", fontSize: "10px" }} title={cand.why_here?.[0] || ""}>
+                                {cand.why_here?.[0] || "Viable catchment area"}
+                                {cand.limitations?.[0] && (
+                                  <div style={{ color: "#b45309", fontSize: "9px" }}>Notice: {cand.limitations[0]}</div>
+                                )}
+                              </td>
+                              <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
+                                <button
+                                  onClick={() => handleAddCandidateToCompare(cand)}
+                                  style={{
+                                    fontSize: "10px",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    border: "1px solid #cbd5e1",
+                                    background: comparedRanks[cand.rank] ? "#f0fdf4" : "#ffffff",
+                                    color: comparedRanks[cand.rank] ? "#166534" : "#2563eb",
+                                    cursor: "pointer",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {comparedRanks[cand.rank] ? "✓ Added" : "+ Compare"}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1486,6 +1588,8 @@ export default function Analysis({
             </p>
 
           </div>
+            </>
+          )}
 
         </aside>
 

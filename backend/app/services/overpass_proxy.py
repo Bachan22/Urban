@@ -45,8 +45,8 @@ OVERPASS_MIRRORS: List[str] = [
 _mirror_health: Dict[str, Tuple[bool, float]] = {}
 HEALTH_RECHECK_SECONDS = 300  # retry failed mirror after 5 minutes
 
-REQUEST_TIMEOUT_POI = 8.0          # seconds for nw POI queries (bounded for reliable mirror responses)
-REQUEST_TIMEOUT_LAND_MASK = 60.0  # seconds for multipolygon land-mask queries
+REQUEST_TIMEOUT_POI = 5.0          # seconds for nw POI queries (fast failover to Google Places)
+REQUEST_TIMEOUT_LAND_MASK = 15.0  # seconds for multipolygon land-mask queries
 
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -108,25 +108,30 @@ def _get_healthy_mirrors() -> List[str]:
             retry.append(mirror)
 
     ordered = healthy + retry
-    return ordered if ordered else ([retry[0]] if retry else [])
+    # If all mirrors are currently failing or in cooldown, do NOT starve requests:
+    # Fallback to returning all mirrors so incoming requests still have a chance.
+    return ordered if ordered else OVERPASS_MIRRORS
 
 
 def _mark_mirror(mirror: str, healthy: bool):
     _mirror_health[mirror] = (healthy, time.monotonic())
 
 
-def _execute_overpass_query(query: str, timeout: float = 25.0) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+def _execute_overpass_query(query: str, timeout: float = 12.0) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
     Attempt query on healthy mirrors in order with bounded backoff.
+    Fast-fail: caps at top 2 mirrors with short timeout so UI is never stalled for minutes.
     Returns: (parsed_data, error_detail)
     """
-    mirrors = _get_healthy_mirrors()
+    mirrors = _get_healthy_mirrors()[:2]
     last_err = None
     for attempt, mirror in enumerate(mirrors):
         try:
             if attempt > 0:
-                time.sleep(0.3 * attempt)
-            with httpx.Client(timeout=timeout) as client:
+                time.sleep(0.2 * attempt)
+            # Cap network timeout per mirror to 12.0s
+            eff_timeout = min(timeout, 12.0)
+            with httpx.Client(timeout=eff_timeout) as client:
                 resp = client.post(
                     mirror,
                     data={"data": query},
@@ -197,7 +202,7 @@ def fetch_pois(
     for _key, q in SUPPLEMENTARY_QUERIES.items():
         parts.append(f"  {q}{around};")
 
-    query = f"""[out:json][timeout:25];
+    query = f"""[out:json][timeout:10];
 (
 {chr(10).join(parts)}
 );
@@ -291,9 +296,9 @@ def fetch_land_mask(
 );
 out geom;"""
 
-    data = _execute_overpass_query(query, timeout=REQUEST_TIMEOUT_LAND_MASK)
+    data, error_detail = _execute_overpass_query(query, timeout=REQUEST_TIMEOUT_LAND_MASK)
     if data is None:
-        logger.warning("Overpass land-mask query failed across all mirrors.")
+        logger.warning("Overpass land-mask query failed across all mirrors: %s", error_detail)
         return {"elements": [], "mirror": "none", "from_cache": False}
 
     result = {

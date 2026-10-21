@@ -45,16 +45,52 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return 2.0 * EARTH_RADIUS_M * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
 
 
+def _adaptive_grid_step(radius_meters: float) -> float:
+    """
+    Adaptive grid step based on study radius to balance resolution vs compute:
+    - 1km radius: 200m step (~78 cells)
+    - 2km radius: 250m step (~200 cells)
+    - 5km radius: 400m step (~490 cells)
+    - 10km radius: 600m step (~870 cells)
+    """
+    if radius_meters <= 1200:
+        return 200.0
+    elif radius_meters <= 2500:
+        return 250.0
+    elif radius_meters <= 5500:
+        return 400.0
+    else:
+        return 600.0
+
+
+def _adaptive_nms_separation(radius_meters: float) -> float:
+    """
+    Scale NMS minimum separation proportionally to study radius.
+    Ensures candidates are meaningfully distributed across the study area.
+    - 1km radius: 300m separation
+    - 2km radius: 450m separation
+    - 5km radius: 900m separation
+    - 10km radius: 1500m separation
+    """
+    # ~15% of the study diameter, clamped to [300, 2000]
+    separation = radius_meters * 0.3
+    return max(300.0, min(separation, 2000.0))
+
+
 def generate_spatial_grid(
     center_lat: float,
     center_lon: float,
     radius_meters: float,
-    step_meters: float = 250.0,
+    step_meters: Optional[float] = None,
 ) -> List[Tuple[float, float]]:
     """
     TCS Spatial Grid Discretization:
     Generate regular grid coordinates within circular buffer D(center, radius).
+    Step size adapts to radius if not explicitly provided.
     """
+    if step_meters is None:
+        step_meters = _adaptive_grid_step(radius_meters)
+
     lat_step_deg = (step_meters / EARTH_RADIUS_M) * (180.0 / math.pi)
     lon_step_deg = (step_meters / (EARTH_RADIUS_M * math.cos(math.radians(center_lat)))) * (180.0 / math.pi)
 
@@ -364,8 +400,9 @@ def recommend_candidate_sites(
 
     competitor_points = [(p["lat"], p["lon"]) for p in businesses]
 
-    # 2. TCS Grid Discretization
-    raw_grid = generate_spatial_grid(center_lat, center_lon, radius_meters, step_meters=250.0)
+    # 2. TCS Grid Discretization (adaptive step based on radius)
+    grid_step = _adaptive_grid_step(float(radius_meters))
+    raw_grid = generate_spatial_grid(center_lat, center_lon, radius_meters, step_meters=grid_step)
 
     # 3. Land Mask
     valid_grid = apply_land_mask(raw_grid, urban_anchors, max_anchor_distance_meters=320.0)
@@ -443,10 +480,17 @@ def recommend_candidate_sites(
     for idx, cell in enumerate(evaluated_cells):
         cell["market_archetype"] = archetypes[idx]
 
-    # 6. TCS Spatial NMS (Top 5 non-overlapping sites, minimum 350m separation)
-    top_sites = non_maximum_suppression(evaluated_cells, min_separation_meters=350.0, top_k=5)
+    # 6. TCS Spatial NMS (adaptive separation scaled to radius)
+    # Strictly validate that every candidate is within the current study circle boundary
+    bounded_cells = [
+        c for c in evaluated_cells
+        if haversine_distance(center_lat, center_lon, c["latitude"], c["longitude"]) <= float(radius_meters)
+    ]
+    nms_separation = _adaptive_nms_separation(float(radius_meters))
+    # Request extra candidates from NMS to have more diversity options, then take top 4
+    top_sites = non_maximum_suppression(bounded_cells, min_separation_meters=nms_separation, top_k=4)
 
-    # 7. Reverse-geocode ONLY the top 3-5 candidates for quota conservation and real street names
+    # 7. Reverse-geocode ONLY the top candidates for quota conservation and real street names
     for rank, site in enumerate(top_sites, start=1):
         site["rank"] = rank
         score_val = site["score"]
@@ -465,7 +509,7 @@ def recommend_candidate_sites(
             site["suitability_label"] = "Fair"
         else:
             site["is_recommended"] = False
-            site["recommendation_badge"] = "Candidate Area (Below Suitability Threshold)"
+            site["recommendation_badge"] = "Alternative Area (Below Suitability Threshold)"
             site["suitability_label"] = "Poor"
         site["badge"] = site["recommendation_badge"]
 
@@ -508,15 +552,19 @@ def recommend_candidate_sites(
             if site["competitors_500m"] <= 2:
                 ranking_reason = f"Ranked #1 among candidate zones due to lowest competitor saturation ({site['competitors_500m']} in 500m)."
             else:
-                ranking_reason = f"Ranked #1 among candidate zones with strongest composite MCDA factor score ({score_val}/100)."
+                ranking_reason = f"Ranked #1 among candidate zones with strongest composite factor score ({score_val}/100)."
         else:
             top_cand = top_sites[0]
             if site["competitors_500m"] > top_cand["competitors_500m"]:
                 ranking_reason = f"Ranked #{rank} due to higher competitor saturation ({site['competitors_500m']} vs {top_cand['competitors_500m']} in Area #1)."
-            elif site["nearest_transit_dist_m"] > top_cand["nearest_transit_dist_m"]:
+            elif site["competitors_500m"] < top_cand["competitors_500m"]:
+                ranking_reason = f"Ranked #{rank} with lower competitor saturation ({site['competitors_500m']} vs {top_cand['competitors_500m']} in Area #1)."
+            elif site["nearest_transit_dist_m"] is not None and top_cand["nearest_transit_dist_m"] is not None and site["nearest_transit_dist_m"] > top_cand["nearest_transit_dist_m"]:
                 ranking_reason = f"Ranked #{rank} due to longer distance to transit (~{site['nearest_transit_dist_m']}m vs ~{top_cand['nearest_transit_dist_m']}m in Area #1)."
+            elif site["score"] == top_cand["score"]:
+                ranking_reason = f"Equal suitability score ({score_val}/100) and comparable catchment profile to Area #1."
             else:
-                ranking_reason = f"Ranked #{rank} based on composite factor weighting."
+                ranking_reason = f"Ranked #{rank} with suitability score {score_val}/100."
         reasons_list.append(ranking_reason)
         site["why_here"] = reasons_list[:4]
 

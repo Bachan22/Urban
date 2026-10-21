@@ -263,6 +263,16 @@ class ScoringEngine:
                 else:
                     comp_score = round(max(20.0, 66.0 - (comp_density - 4.0) * 4.0), 1)
                     negative_risks.append(f"High education institute competition ({inp.competitors_count} nearby).")
+            elif btype == "Gym":
+                if comp_density <= 0.5:
+                    comp_score = round(92.0 - comp_density * 12.0, 1)
+                    positive_drivers.append(f"Low fitness center saturation ({inp.competitors_count} nearby, {comp_density:.1f}/km²): strong local membership potential.")
+                elif comp_density <= 2.5:
+                    comp_score = round(86.0 - ((comp_density - 0.5) / 2.0) * 22.0, 1)
+                    positive_drivers.append(f"Active fitness cluster ({inp.competitors_count} gyms, {comp_density:.1f}/km²): established workout demographic.")
+                else:
+                    comp_score = round(max(20.0, 64.0 - (comp_density - 2.5) * 4.0), 1)
+                    negative_risks.append(f"High gym competition ({inp.competitors_count} gyms, {comp_density:.1f}/km²): price competition and member churn risk.")
             else:
                 if comp_density <= 1.5:
                     comp_score = round(90.0 - comp_density * 8.0, 1)

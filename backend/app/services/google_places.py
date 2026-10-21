@@ -298,11 +298,83 @@ def fetch_google_competitors(
 
     _in_memory_cache[cache_k] = (now, result_payload)
 
-    if debug:
-        logger.info(
-            "[Google Places] Finished: %d unique places inside %dm radius using %d API calls (capped=%s)",
-            len(formatted_businesses), radius_meters, calls_made, results_capped,
-        )
-
     return result_payload
+
+
+def fetch_google_supplementary_pois(
+    center_lat: float,
+    center_lon: float,
+    radius_meters: int,
+    debug: bool = False,
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Fallback when Overpass fails:
+    Queries Google Places for civic, transit, and demand anchors using a single root call per category.
+    Respects daily cap and in-memory cache to conserve quota.
+    Categories queried:
+      - hospitals: ["hospital", "medical_clinic"]
+      - schools: ["school", "secondary_school"]
+      - colleges: ["university"]
+      - transit (bus & rail): ["transit_station", "bus_stop", "subway_station", "train_station"]
+    """
+    api_key = settings.GOOGLE_MAPS_API_KEY
+    if not api_key:
+        return {}
+
+    cache_k = f"google_supp_{round(center_lat, 3)}_{round(center_lon, 3)}_{radius_meters}"
+    now = time.time()
+    if cache_k in _in_memory_cache:
+        timestamp, cached_data = _in_memory_cache[cache_k]
+        if now - timestamp < CACHE_TTL_SECONDS:
+            return cached_data
+
+    # Map category to Google Places (New) includedTypes
+    category_types = {
+        "hospitals": ["hospital", "medical_clinic"],
+        "schools": ["school"],
+        "colleges": ["university"],
+        "bus_stops": ["bus_stop"],
+        "railway_stations": ["transit_station", "train_station", "subway_station"],
+    }
+
+    result: Dict[str, List[Dict[str, Any]]] = {
+        "hospitals": [],
+        "schools": [],
+        "colleges": [],
+        "offices": [],
+        "bus_stops": [],
+        "railway_stations": [],
+    }
+
+    for cat_name, types in category_types.items():
+        if not _check_and_increment_daily_cap(1):
+            break
+        places, _ = _search_single_circle(center_lat, center_lon, radius_meters, types, api_key)
+        if not places:
+            continue
+        for p in places:
+            loc = p.get("location", {})
+            plat = loc.get("latitude")
+            plon = loc.get("longitude")
+            if plat is None or plon is None:
+                continue
+            dist = haversine_distance(center_lat, center_lon, plat, plon)
+            if dist > radius_meters:
+                continue
+            d_name = p.get("displayName", {}).get("text", f"Unnamed {cat_name}")
+            pid = p.get("id") or f"{cat_name}_{plat}_{plon}"
+            numeric_id = int(hashlib.md5(pid.encode()).hexdigest()[:8], 16)
+            result[cat_name].append({
+                "id": numeric_id,
+                "place_id": pid,
+                "name": d_name,
+                "lat": plat,
+                "lon": plon,
+                "distance_meters": round(dist, 1),
+                "category": cat_name,
+                "source": "google_places",
+            })
+
+    _in_memory_cache[cache_k] = (now, result)
+    return result
 

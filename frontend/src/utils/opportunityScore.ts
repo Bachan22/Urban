@@ -218,6 +218,17 @@ export function calculateOpportunityScore(
         compScore = Math.round(Math.max(20.0, 66.0 - (compDensity - 4.0) * 4.0) * 10) / 10;
         negativeRisks.push(`High education institute competition (${compCount} nearby).`);
       }
+    } else if (btype === "Gym") {
+      if (compDensity <= 0.5) {
+        compScore = Math.round((92.0 - compDensity * 12.0) * 10) / 10;
+        positiveDrivers.push(`Low fitness center saturation (${compCount} nearby, ${compDensity.toFixed(1)}/km²): strong local membership potential.`);
+      } else if (compDensity <= 2.5) {
+        compScore = Math.round((86.0 - ((compDensity - 0.5) / 2.0) * 22.0) * 10) / 10;
+        positiveDrivers.push(`Active fitness cluster (${compCount} gyms, ${compDensity.toFixed(1)}/km²): established workout demographic.`);
+      } else {
+        compScore = Math.round(Math.max(20.0, 64.0 - (compDensity - 2.5) * 4.0) * 10) / 10;
+        negativeRisks.push(`High gym competition (${compCount} gyms, ${compDensity.toFixed(1)}/km²): price competition and member churn risk.`);
+      }
     } else {
       if (compDensity <= 1.5) compScore = Math.round((90.0 - compDensity * 8.0) * 10) / 10;
       else if (compDensity <= 5.0) compScore = Math.round((78.0 - ((compDensity - 1.5) / 3.5) * 24.0) * 10) / 10;

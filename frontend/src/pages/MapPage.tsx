@@ -5,6 +5,8 @@ import type { BusinessType } from "../data/puneData";
 import { puneData } from "../data/puneData";
 import { geocodeLocation } from "../services/api";
 
+import { getLatestAnalysisReport } from "../utils/analysisReport";
+
 const cityCenters: Record<string, { name: string; latitude: number; longitude: number; radiusKm: number }> = {
   pune: { name: "Pune", latitude: puneData.center.latitude, longitude: puneData.center.longitude, radiusKm: 2 },
   mumbai: { name: "Mumbai", latitude: 19.076, longitude: 72.8777, radiusKm: 2 },
@@ -14,14 +16,40 @@ const cityCenters: Record<string, { name: string; latitude: number; longitude: n
 export const MapPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const businessParam = (searchParams.get("business") || searchParams.get("category") || "Education Institute") as BusinessType;
-  const cityKey = (searchParams.get("city") || "pune").toLowerCase();
+
+  // If explicit URL params are provided, they take absolute precedence.
+  // Otherwise, restore the user's latest analysis context if available.
+  const latestSaved = !searchParams.get("business") && !searchParams.get("category") && !searchParams.get("city") && !searchParams.get("lat")
+    ? getLatestAnalysisReport()
+    : null;
+
+  const businessParam = (
+    searchParams.get("business") ||
+    searchParams.get("category") ||
+    latestSaved?.businessType ||
+    "Education Institute"
+  ) as BusinessType;
+
+  const rawCity = searchParams.get("city") || latestSaved?.city || "pune";
+  const cityKey = rawCity.toLowerCase();
   const selectedCity = cityCenters[cityKey] ?? cityCenters.pune;
-  const areaQuery = (searchParams.get("location") || searchParams.get("address") || "").trim();
-  const radiusParam = Number(searchParams.get("radius")) || 2;
-  const latParam = searchParams.get("lat") ? Number(searchParams.get("lat")) : null;
-  const lonParam = (searchParams.get("lon") || searchParams.get("lng")) ? Number(searchParams.get("lon") || searchParams.get("lng")) : null;
-  const hasExactCoords = latParam !== null && lonParam !== null && !isNaN(latParam) && !isNaN(lonParam);
+
+  const areaQuery = (
+    searchParams.get("location") ||
+    searchParams.get("address") ||
+    (latestSaved?.areaName || "")
+  ).trim();
+
+  const radiusParam = Number(searchParams.get("radius")) || (latestSaved ? latestSaved.radiusMeters / 1000 : 2);
+
+  const rawLat = searchParams.get("lat") ? Number(searchParams.get("lat")) : (latestSaved ? latestSaved.latitude : null);
+  const rawLon = (searchParams.get("lon") || searchParams.get("lng"))
+    ? Number(searchParams.get("lon") || searchParams.get("lng"))
+    : (latestSaved ? latestSaved.longitude : null);
+
+  const latParam = rawLat !== null && !isNaN(rawLat) ? rawLat : null;
+  const lonParam = rawLon !== null && !isNaN(rawLon) ? rawLon : null;
+  const hasExactCoords = latParam !== null && lonParam !== null;
 
   const [initialCenter, setInitialCenter] = useState({
     latitude: hasExactCoords ? latParam : selectedCity.latitude,
@@ -96,7 +124,7 @@ export const MapPage: React.FC = () => {
       areaNotFound={areaNotFound}
       initialCenter={initialCenter}
       studyRadiusKm={radiusParam}
-      onBack={() => navigate("/dashboard")}
+      onBack={() => navigate("/")}
     />
   );
 };

@@ -23,6 +23,9 @@ export interface AnalysisReport {
     weightedContribution?: number;
     description?: string;
     status?: string;
+    dataState?: "observed" | "confirmed_zero" | "unavailable" | "partial" | string;
+    isEstimated?: boolean;
+    rawCount?: number;
   }[];
   explanations: string[];
   positiveDrivers?: string[];
@@ -155,71 +158,139 @@ export function subscribeToAnalysisReport(listener: () => void) {
   return () => window.removeEventListener(REPORT_EVENT, listener);
 }
 
-export function downloadAnalysisReport(report: AnalysisReport) {
-  const rows = [
-    ["UrbanIQ Location Suitability & Intelligence Report"],
-    ["Generated", new Date(report.generatedAt).toLocaleString()],
-    ["City", report.city],
-    ["Area / Coordinates", `${report.areaName || "Selected Point"} (${report.latitude}, ${report.longitude})`],
-    ["Business Type", report.businessType],
-    ["Analysis Radius", `${report.radiusMeters / 1000} km (${report.radiusMeters} m)`],
-    ["Data Status", report.dataStatus === "live" ? "Live Real-World Data" : "Unverified / Sparse Data"],
-    ["Data Source", report.dataSource === "google_places" ? "Google Places Platform" : (report.dataSource === "osm" ? "OpenStreetMap" : "Live POI Aggregation")],
-    ["Authoritative Suitability Score", `${report.score}/100 (${report.suitabilityLabel || report.level})`],
-    ["Data Confidence", report.confidenceLevel || "Medium"],
-    ...(report.missingDataWarnings && report.missingDataWarnings.length > 0
-      ? [[], ["Data Notices & Missing Data Disclosures"], ...report.missingDataWarnings.map((w) => [w])]
-      : []),
-    [],
-    ["Multi-Criteria Factor Breakdown", "Score (0-100)", "Weight (%)", "Contribution (pts)"],
-    ...report.factors.map((f) => [f.name, f.value, f.weight, f.weightedContribution || (f.value * (f.weight / 100)).toFixed(1)]),
-    [],
-    ["Key Positive Drivers"],
-    ...(report.positiveDrivers || report.explanations).map((d) => [d]),
-    [],
-    ["Negative Risks & Considerations"],
-    ...(report.negativeRisks || ["Standard competitive market risk"]).map((r) => [r]),
-    [],
-    ["Practical Recommendation", report.practicalRecommendation || ""],
-    [],
-    ["Competitors Detected", "Category", "Latitude", "Longitude"],
-    ...report.competitors.map((place) => [place.name, place.category, place.latitude, place.longitude]),
-    ...(report.recommendedAreas && report.recommendedAreas.length > 0
-      ? [
-          [],
-          ["Area Discovery — Candidate Zones within Study Area"],
-          ["Rank", "Area / Landmark", "Verified Street Status", "Score", "Suitability Badge", "Competitors (500m)", "Coordinates"],
-          ...report.recommendedAreas.map((a) => [
-            `#${a.rank}`,
-            a.landmark,
-            a.has_verified_street ? "Verified Commercial Road" : "Street Unverified (Approximate Zone)",
-            `${a.score}/100`,
-            a.badge,
-            a.competitors_500m,
-            `(${a.latitude}, ${a.longitude})`,
-          ]),
-        ]
-      : []),
-    [],
-    ["Disclaimer", "Scoring is deterministic MCDA + Mamdani fuzzy inference. It provides comparative suitability screening and is not a financial or revenue guarantee."],
-  ];
+function sanitizeForCsv(val: any): string {
+  if (val === null || val === undefined) return "";
+  let str = String(val);
+  // Prevent CSV Formula Injection in Excel (=, +, -, @, \t, \r)
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+  // Escape quotes
+  return `"${str.replace(/"/g, '""')}"`;
+}
 
-  const csv = rows
-    .map((row) =>
-      row
-        .map((value) => {
-          const cell = String(value ?? "");
-          return `"${cell.replace(/"/g, '""')}"`;
-        })
-        .join(",")
-    )
+export function downloadAnalysisReport(report: AnalysisReport) {
+  const sections: string[][] = [];
+
+  // 1. EXECUTIVE HEADER & METADATA
+  sections.push(["URBANIQ BUSINESS FEASIBILITY REPORT"]);
+  sections.push(["Report Title", "UrbanIQ Location Suitability Assessment"]);
+  sections.push(["Generated Timestamp", new Date(report.generatedAt).toISOString()]);
+  sections.push(["Target Business Category", report.businessType]);
+  sections.push(["Administrative City", report.city]);
+  sections.push(["Study Zone / Area", report.areaName || "Selected Study Centre"]);
+  sections.push(["Centre Latitude", report.latitude.toFixed(5)]);
+  sections.push(["Centre Longitude", report.longitude.toFixed(5)]);
+  sections.push(["Study Radius (km)", (report.radiusMeters / 1000).toFixed(1)]);
+  sections.push(["Overall Opportunity Score", `${report.score}/100`]);
+  sections.push(["Suitability Potential", report.suitabilityLabel || report.level]);
+  sections.push(["Data Confidence Level", report.confidenceLevel || "Standard"]);
+  sections.push(["Data Freshness / Quality", report.dataStatus === "live" ? "Live Verified OSM Data" : "Unverified / Sparse Data"]);
+  sections.push(["Primary Data Source", report.dataSource === "google_places" ? "Google Places API" : "OpenStreetMap"]);
+  sections.push(["Executive Recommendation", report.practicalRecommendation || ""]);
+  sections.push([]);
+
+  // 2. DISCLOSURES & WARNINGS
+  if (report.missingDataWarnings && report.missingDataWarnings.length > 0) {
+    sections.push(["DATA NOTICES & UNCERTAINTY DISCLOSURES"]);
+    sections.push(["Notice Index", "Disclosure Details"]);
+    report.missingDataWarnings.forEach((w, idx) => {
+      sections.push([`Notice #${idx + 1}`, w]);
+    });
+    sections.push([]);
+  }
+
+  // 3. FACTOR EVALUATION BREAKDOWN (ONE RECORD PER ROW, CLEAR COLUMNS)
+  sections.push(["FEASIBILITY FACTOR BREAKDOWN (MCDA MODEL)"]);
+  sections.push(["Factor Name", "Score (0-100)", "Weight (%)", "Contribution (pts)", "Data Status", "Criterion Insight"]);
+  report.factors.forEach((f) => {
+    const contribution = f.weightedContribution !== undefined
+      ? f.weightedContribution.toString()
+      : (f.value * (f.weight / 100)).toFixed(1);
+    const state = f.dataState || f.status;
+    const status = (state === "unavailable" || f.isEstimated)
+      ? "Estimated / Proxy"
+      : (state === "confirmed_zero" ? "Confirmed 0" : (state === "partial" ? "Partially Verified" : "Observed"));
+    sections.push([
+      f.name,
+      f.value.toString(),
+      f.weight.toString(),
+      contribution,
+      status,
+      f.description || ""
+    ]);
+  });
+  sections.push([]);
+
+  // 4. STRATEGIC DRIVERS & RISKS
+  sections.push(["KEY STRATEGIC CONSIDERATIONS"]);
+  sections.push(["Type", "Description"]);
+  (report.positiveDrivers || report.explanations || []).forEach((d) => {
+    sections.push(["Positive Driver", d]);
+  });
+  (report.negativeRisks || ["Standard competitive and demographic market risk"]).forEach((r) => {
+    sections.push(["Risk / Trade-off", r]);
+  });
+  sections.push([]);
+
+  // 5. DIRECT COMPETITORS TABLE (EACH IN SEPARATE COLUMNS & ROWS)
+  sections.push([`MAPPED COMPETITOR DIRECTORY (${report.competitors.length} RECORDED PLACES)`]);
+  if (report.competitors.length > 0) {
+    sections.push(["Index", "Business Name", "Category", "Latitude", "Longitude", "Data Source"]);
+    report.competitors.forEach((c, idx) => {
+      sections.push([
+        (idx + 1).toString(),
+        c.name || "Commercial Venue",
+        c.category || report.businessType,
+        c.latitude.toFixed(5),
+        c.longitude.toFixed(5),
+        "OpenStreetMap POI"
+      ]);
+    });
+  } else {
+    sections.push(["Status", "No direct competitor points of interest recorded in current study circle"]);
+  }
+  sections.push([]);
+
+  // 6. CANDIDATE LOCATIONS MATRIX (IF AVAILABLE)
+  if (report.recommendedAreas && report.recommendedAreas.length > 0) {
+    sections.push(["AREA DISCOVERY — RECOMMENDED CANDIDATE LOCATIONS (500M CATCHMENT)"]);
+    sections.push(["Rank", "Locality / Landmark", "Suitability Score", "Suitability Badge", "Competitors (500m)", "Coordinates", "Street Verification Status"]);
+    report.recommendedAreas.forEach((cand) => {
+      sections.push([
+        `#${cand.rank}`,
+        cand.landmark,
+        `${cand.score}/100`,
+        cand.badge || "Candidate",
+        cand.competitors_500m.toString(),
+        `(${cand.latitude.toFixed(4)}, ${cand.longitude.toFixed(4)})`,
+        cand.has_verified_street ? "Verified Commercial Street" : "Approximate Zone"
+      ]);
+    });
+    sections.push([]);
+  }
+
+  // 7. LEGAL & METHODOLOGY DISCLAIMER
+  sections.push(["LEGAL & METHODOLOGY DISCLAIMER"]);
+  sections.push(["Scope", "Deterministic multi-criteria decision analysis (MCDA) and Mamdani fuzzy logic screening."]);
+  sections.push(["Disclaimer", "UrbanIQ estimates provide commercial screening signals only and do not guarantee footfall, revenue, or business profitability. Validate lease terms, local zoning, and physical conditions prior to financial commitment."]);
+
+  // Construct CSV content with Excel UTF-8 BOM
+  const csvContent = sections
+    .map((row) => row.map(sanitizeForCsv).join(","))
     .join("\r\n");
 
-  const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob(["\uFEFF", csvContent], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
+
+  const cleanLoc = (report.areaName || report.city).replace(/[^a-zA-Z0-9]+/g, "_");
+  const cleanCat = report.businessType.replace(/[^a-zA-Z0-9]+/g, "_");
+  const dateTag = new Date().toISOString().split("T")[0];
   link.href = url;
-  link.download = `urbaniq-${report.city.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${report.businessType.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-score.csv`;
+  link.download = `UrbanIQ_Feasibility_${cleanLoc}_${cleanCat}_${dateTag}.csv`;
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }

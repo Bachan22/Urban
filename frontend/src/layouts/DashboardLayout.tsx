@@ -1,9 +1,8 @@
 import React, { useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard,
   MapPin,
-  Target,
+  GitCompare,
   FileText,
   ChevronRight,
   ShieldAlert,
@@ -19,9 +18,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: "Overview", path: "/dashboard", icon: <LayoutDashboard size={18} /> },
   { label: "GIS Map", path: "/map", icon: <MapPin size={18} /> },
-  { label: "Opportunities", path: "/opportunities", icon: <Target size={18} /> },
+  { label: "Compare", path: "/compare", icon: <GitCompare size={18} /> },
   { label: "Reports", path: "/reports", icon: <FileText size={18} /> },
 ];
 
@@ -103,29 +101,54 @@ export const DashboardLayout: React.FC = () => {
 
         {/* NAVIGATION ITEMS */}
         <nav style={{ flex: 1, padding: "16px 10px", display: "flex", flexDirection: "column", gap: "4px" }}>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              style={({ isActive }) => ({
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "10px 14px",
-                borderRadius: "8px",
-                fontSize: "14px",
-                fontWeight: isActive ? 600 : 500,
-                color: isActive ? "#ffffff" : "#94a3b8",
-                backgroundColor: isActive ? "#1e3a8a" : "transparent",
-                transition: "all 0.15s ease",
-                textDecoration: "none",
-              })}
-              title={!sidebarOpen ? item.label : undefined}
-            >
-              <span style={{ display: "flex", alignItems: "center" }}>{item.icon}</span>
-              {sidebarOpen && <span>{item.label}</span>}
-            </NavLink>
-          ))}
+          {navItems.map((item) => {
+            let targetPath = item.path;
+            if (item.path === "/map") {
+              try {
+                const raw = localStorage.getItem("urbaniq.latestAnalysisReport");
+                if (raw) {
+                  const r = JSON.parse(raw);
+                  if (r.businessType && r.city) {
+                    const q = new URLSearchParams({
+                      business: r.businessType,
+                      city: r.city,
+                      lat: r.latitude.toFixed(5),
+                      lon: r.longitude.toFixed(5),
+                      radius: ((r.radiusMeters || 2000) / 1000).toString(),
+                    });
+                    if (r.areaName) q.set("location", r.areaName);
+                    targetPath = `/map?${q.toString()}`;
+                  }
+                }
+              } catch (e) {
+                // fallback to /map
+              }
+            }
+
+            return (
+              <NavLink
+                key={item.path}
+                to={targetPath}
+                style={({ isActive }) => ({
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: isActive ? 600 : 500,
+                  color: isActive ? "#ffffff" : "#94a3b8",
+                  backgroundColor: isActive ? "#1e3a8a" : "transparent",
+                  transition: "all 0.15s ease",
+                  textDecoration: "none",
+                })}
+                title={!sidebarOpen ? item.label : undefined}
+              >
+                <span style={{ display: "flex", alignItems: "center" }}>{item.icon}</span>
+                {sidebarOpen && <span>{item.label}</span>}
+              </NavLink>
+            );
+          })}
         </nav>
 
         {/* SIDEBAR FOOTER / LANDING LINK */}

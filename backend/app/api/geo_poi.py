@@ -236,13 +236,35 @@ def api_get_pois(
                     category_statuses["businesses"] = "confirmed_zero"
 
             if osm_status == "unavailable":
-                warnings.append("Civic, transit, and demand anchors unavailable: Overpass API timed out or failed.")
+                # Fallback to Google Places for civic, transit, and educational infrastructure
+                try:
+                    from backend.app.services.google_places import fetch_google_supplementary_pois
+                    g_supp = fetch_google_supplementary_pois(lat, lon, radius, debug=debug)
+                    for k in ["hospitals", "schools", "colleges", "bus_stops", "railway_stations"]:
+                        if g_supp.get(k):
+                            result[k] = g_supp[k]
+                            result["poi_counts"][k] = len(g_supp[k])
+                            category_statuses[k] = "observed"
+                except Exception as ge:
+                    logger.warning("Google Places supplementary fallback failed: %s", ge)
+                    warnings.append("Civic, transit, and demand anchors unavailable: spatial API queries timed out.")
             result["mirror"] = osm_res.get("mirror", "none")
     except Exception as e:
         logger.warning("Supplementary Overpass POI fetch failed: %s", e)
-        warnings.append("Supplementary spatial data queries failed.")
-        for k in ["hospitals", "schools", "colleges", "offices", "bus_stops", "railway_stations"]:
-            category_statuses[k] = "unavailable"
+        # Try Google Places fallback
+        try:
+            from backend.app.services.google_places import fetch_google_supplementary_pois
+            g_supp = fetch_google_supplementary_pois(lat, lon, radius, debug=debug)
+            for k in ["hospitals", "schools", "colleges", "bus_stops", "railway_stations"]:
+                if g_supp.get(k):
+                    result[k] = g_supp[k]
+                    result["poi_counts"][k] = len(g_supp[k])
+                    category_statuses[k] = "observed"
+                else:
+                    category_statuses[k] = "unavailable"
+        except Exception:
+            for k in ["hospitals", "schools", "colleges", "offices", "bus_stops", "railway_stations"]:
+                category_statuses[k] = "unavailable"
 
     # Aggregate feature-level statuses
     transit_observed = (len(result.get("bus_stops", [])) + len(result.get("railway_stations", []))) > 0
